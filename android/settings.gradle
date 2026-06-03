@@ -1,6 +1,11 @@
 pluginManagement { includeBuild("../node_modules/@react-native/gradle-plugin") }
 plugins { id("com.facebook.react.settings") }
-extensions.configure(com.facebook.react.ReactSettingsExtension){ ex -> ex.autolinkLibrariesFromCommand() }
+extensions.configure(com.facebook.react.ReactSettingsExtension){ ex ->
+    // Android Studio on macOS doesn't inherit the shell PATH (Homebrew lives in
+    // /opt/homebrew/bin which GUI apps never see). Pass the absolute node binary
+    // so autolinking can run "node cli.js config" without a PATH lookup failure.
+    ex.autolinkLibrariesFromCommand(["/opt/homebrew/bin/node", "node_modules/react-native/cli.js", "config"])
+}
 rootProject.name = 'bodhira'
 include ':app'
 includeBuild('../node_modules/@react-native/gradle-plugin')

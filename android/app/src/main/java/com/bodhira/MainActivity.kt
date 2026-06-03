@@ -7,16 +7,13 @@ import com.facebook.react.defaults.DefaultReactActivityDelegate
 
 class MainActivity : ReactActivity() {
 
-  /**
-   * Returns the name of the main component registered from JavaScript. This is used to schedule
-   * rendering of the component.
-   */
   override fun getMainComponentName(): String = "bodhira"
 
-  /**
-   * Returns the instance of the [ReactActivityDelegate]. We use [DefaultReactActivityDelegate]
-   * which allows you to enable New Architecture with a single boolean flags [fabricEnabled]
-   */
   override fun createReactActivityDelegate(): ReactActivityDelegate =
       DefaultReactActivityDelegate(this, mainComponentName, fabricEnabled)
+
+  // RN 0.73+ new architecture (ReactHost / Fabric) forwards config changes
+  // automatically via super.onConfigurationChanged — no manual bridge call needed.
+  // The old reactInstanceManager?.onConfigurationChanged pattern was Bridge-only
+  // and causes a crash on the new arch when an orientation change triggers it.
 }
