@@ -188,7 +188,7 @@ export const SignUpScreen: React.FC<Props> = ({ navigation }) => {
             <Text style={styles.fieldLabel}>SET PASSWORD</Text>
             <View style={[styles.inputBox, focusedField === 'password' && styles.inputBoxFocused]}>
               <TextInput
-                style={styles.textInput}
+                style={[styles.textInput, styles.passwordInput]}
                 value={password}
                 onChangeText={onPassword}
                 placeholder="••••••••••"
@@ -205,7 +205,7 @@ export const SignUpScreen: React.FC<Props> = ({ navigation }) => {
             <Text style={styles.fieldLabel}>CONFIRM PASSWORD</Text>
             <View style={[styles.inputBox, focusedField === 'confirm' && styles.inputBoxFocused, !!errors.password && styles.inputBoxError]}>
               <TextInput
-                style={styles.textInput}
+                style={[styles.textInput, styles.passwordInput]}
                 value={confirm}
                 onChangeText={onConfirm}
                 placeholder="••••••••••"
@@ -292,22 +292,24 @@ const styles = StyleSheet.create({
   topTitle: { fontSize: 16, fontWeight: '800', color: Colors.text },
   scroll: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 32 },
   sub: { fontSize: 12, color: Colors.text2, marginBottom: 18 },
-  field: { marginBottom: 10 },
-  fieldLabel: { fontSize: 10, color: Colors.text3, fontWeight: '700', letterSpacing: 0.6, marginBottom: 3 },
+  field: { marginBottom: 14 },
+  fieldLabel: { fontSize: 11, color: Colors.text3, fontWeight: '700', letterSpacing: 0.6, marginBottom: 6 },
   inputBox: {
     backgroundColor: Colors.white,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: Colors.border,
     borderRadius: Radius.md,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
   },
   inputBoxFocused: { borderColor: Colors.primary },
   inputBoxError: { borderColor: Colors.danger },
-  textInput: { flex: 1, fontSize: 13, color: Colors.text, fontWeight: '500', padding: 0 },
-  fieldError: { fontSize: 10, color: Colors.danger, marginTop: 3, marginLeft: 2 },
+  textInput: { flex: 1, fontSize: 16, color: Colors.text, fontWeight: '500', padding: 0 },
+  passwordInput: { fontSize: 19, letterSpacing: 2 },
+  fieldError: { fontSize: 11, color: Colors.danger, marginTop: 4, marginLeft: 2 },
   strengthWrap: { marginBottom: 14, marginTop: 2 },
   strengthBars: { flexDirection: 'row', gap: 4, marginBottom: 5 },
   strengthBar: { flex: 1, height: 3, borderRadius: 2 },

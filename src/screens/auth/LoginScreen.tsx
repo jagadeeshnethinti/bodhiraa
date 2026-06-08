@@ -167,7 +167,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
               <Text style={styles.fieldLabel}>PASSWORD</Text>
               <View style={[styles.inputBox, focusedField === 'password' && styles.inputBoxFocused]}>
                 <TextInput
-                  style={styles.textInput}
+                  style={[styles.textInput, styles.passwordInput]}
                   value={password}
                   onChangeText={setPassword}
                   placeholder="••••••••••"
@@ -250,23 +250,25 @@ const styles = StyleSheet.create({
   body: { padding: 20, paddingTop: 28 },
   greeting: { fontSize: 22, fontWeight: '800', color: Colors.text, letterSpacing: -0.44, marginBottom: 4 },
   sub: { fontSize: 12, color: Colors.text2, marginBottom: 20 },
-  field: { marginBottom: 10 },
-  fieldLabel: { fontSize: 10, color: Colors.text3, fontWeight: '700', letterSpacing: 0.6, marginBottom: 3 },
+  field: { marginBottom: 14 },
+  fieldLabel: { fontSize: 11, color: Colors.text3, fontWeight: '700', letterSpacing: 0.6, marginBottom: 6 },
   inputBox: {
     backgroundColor: Colors.white,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: Colors.border,
     borderRadius: Radius.md,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
   },
   inputBoxFocused: { borderColor: Colors.primary },
   inputBoxError: { borderColor: Colors.danger },
-  textInput: { flex: 1, fontSize: 13, color: Colors.text, fontWeight: '500', padding: 0 },
-  fieldError: { fontSize: 10, color: Colors.danger, marginTop: 3, marginLeft: 2 },
-  showBtn: { fontSize: 11, color: Colors.primary, fontWeight: '600' },
+  textInput: { flex: 1, fontSize: 16, color: Colors.text, fontWeight: '500', padding: 0 },
+  passwordInput: { fontSize: 19, letterSpacing: 2 },
+  fieldError: { fontSize: 11, color: Colors.danger, marginTop: 4, marginLeft: 2 },
+  showBtn: { fontSize: 12, color: Colors.primary, fontWeight: '700', paddingLeft: 8 },
   forgotWrap: { alignSelf: 'flex-end', marginBottom: 14 },
   forgot: { fontSize: 11, color: Colors.primary, fontWeight: '700' },
   formError: { fontSize: 12, color: Colors.danger, marginBottom: 12, fontWeight: '600' },
