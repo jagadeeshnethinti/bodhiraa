@@ -4,8 +4,9 @@ import LinearGradient from 'react-native-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Radius, Shadow } from '../../theme';
 import { ProgressBar } from '../../components/common/ProgressBar';
+import { Icon, IconName } from '../../components/common/Icon';
 
-export const ParentHomeScreen: React.FC<{ navigation: any }> = ({ navigation }) => (
+export const ParentHomeScreen: React.FC = () => (
   <View style={styles.container}>
     <StatusBar barStyle="light-content" backgroundColor="#1A0A0C" />
 
@@ -18,7 +19,7 @@ export const ParentHomeScreen: React.FC<{ navigation: any }> = ({ navigation }) 
       <SafeAreaView edges={['top']} style={styles.header}>
         <View style={styles.topbar}>
           <View>
-            <Text style={styles.greeting}>Hello 👋</Text>
+            <Text style={styles.greeting}>Hello</Text>
             <Text style={styles.name}>Rajesh Sharma</Text>
           </View>
           <View style={styles.avatar}><Text style={styles.avatarText}>R</Text></View>
@@ -31,7 +32,7 @@ export const ParentHomeScreen: React.FC<{ navigation: any }> = ({ navigation }) 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Child card */}
         <View style={styles.childCard}>
-          <View style={styles.childAvatar}><Text style={{ fontSize: 28 }}>🎓</Text></View>
+          <View style={styles.childAvatar}><Icon name="school" size={28} color={Colors.primary} /></View>
           <View style={styles.childInfo}>
             <Text style={styles.childName}>Arjun Sharma</Text>
             <Text style={styles.childMeta}>Class 11-A · Delhi Public School</Text>
@@ -41,7 +42,10 @@ export const ParentHomeScreen: React.FC<{ navigation: any }> = ({ navigation }) 
                 <Text style={styles.childStatLbl}>Avg Score</Text>
               </View>
               <View style={styles.childStat}>
-                <Text style={styles.childStatVal}>🔥14</Text>
+                <View style={styles.streakRow}>
+                  <Icon name="fire" size={14} color={Colors.warning} />
+                  <Text style={styles.childStatVal}>14</Text>
+                </View>
                 <Text style={styles.childStatLbl}>Streak</Text>
               </View>
               <View style={styles.childStat}>
@@ -54,7 +58,7 @@ export const ParentHomeScreen: React.FC<{ navigation: any }> = ({ navigation }) 
 
         {/* Alerts */}
         <View style={styles.alertCard}>
-          <Text style={{ fontSize: 18 }}>⚠️</Text>
+          <Icon name="warning" size={18} color={Colors.warning} />
           <View style={styles.alertInfo}>
             <Text style={styles.alertTitle}>Weak in Organic Chemistry</Text>
             <Text style={styles.alertSub}>AI suggests extra practice sessions</Text>
@@ -67,13 +71,13 @@ export const ParentHomeScreen: React.FC<{ navigation: any }> = ({ navigation }) 
         {/* Subject progress */}
         <Text style={styles.sectionTitle}>Subject Performance</Text>
         {[
-          { emoji: '⚗️', name: 'Chemistry',  pct: 62, variant: 'warning' as const },
-          { emoji: '📐', name: 'Mathematics', pct: 78, variant: 'success' as const },
-          { emoji: '🔬', name: 'Physics',     pct: 55, variant: 'warning' as const },
-          { emoji: '📖', name: 'English',     pct: 91, variant: 'teal'    as const },
+          { icon: 'flask'      as IconName, name: 'Chemistry',  pct: 62, variant: 'warning' as const },
+          { icon: 'calculator' as IconName, name: 'Mathematics', pct: 78, variant: 'success' as const },
+          { icon: 'microscope' as IconName, name: 'Physics',     pct: 55, variant: 'warning' as const },
+          { icon: 'book'       as IconName, name: 'English',     pct: 91, variant: 'teal'    as const },
         ].map((s, i) => (
           <View key={i} style={styles.subjectRow}>
-            <Text style={{ fontSize: 20 }}>{s.emoji}</Text>
+            <Icon name={s.icon} size={20} color={Colors.primary} />
             <View style={styles.subjectContent}>
               <View style={styles.subjectHeader}>
                 <Text style={styles.subjectName}>{s.name}</Text>
@@ -88,14 +92,14 @@ export const ParentHomeScreen: React.FC<{ navigation: any }> = ({ navigation }) 
 
         {/* Quick actions */}
         <View style={styles.actionsGrid}>
-          {[
-            { icon: '📊', label: "Child's Progress" },
-            { icon: '📅', label: 'Attendance' },
-            { icon: '📋', label: 'Reports' },
-            { icon: '💬', label: 'Contact Teacher' },
-          ].map((a, i) => (
+          {([
+            { icon: 'chart',     label: "Child's Progress" },
+            { icon: 'calendar',  label: 'Attendance' },
+            { icon: 'clipboard', label: 'Reports' },
+            { icon: 'chat',      label: 'Contact Teacher' },
+          ] as { icon: IconName; label: string }[]).map((a, i) => (
             <TouchableOpacity key={i} style={styles.actionTile}>
-              <Text style={{ fontSize: 28 }}>{a.icon}</Text>
+              <Icon name={a.icon} size={28} color={Colors.primary} />
               <Text style={styles.actionLabel}>{a.label}</Text>
             </TouchableOpacity>
           ))}
@@ -129,6 +133,7 @@ const styles = StyleSheet.create({
   childMeta:     { fontSize: 11, color: Colors.text2, marginTop: 2, marginBottom: 10 },
   childStats:    { flexDirection: 'row', gap: 16 },
   childStat:     { alignItems: 'center' },
+  streakRow:     { flexDirection: 'row', alignItems: 'center', gap: 3 },
   childStatVal:  { fontSize: 15, fontWeight: '800', color: Colors.text },
   childStatLbl:  { fontSize: 9, color: Colors.text3, fontWeight: '600', marginTop: 2 },
   alertCard: {

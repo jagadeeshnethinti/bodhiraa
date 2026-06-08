@@ -1,34 +1,41 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useAuth } from '../context/AuthContext';
 
-import { AuthNavigator }    from './AuthNavigator';
+import { BootScreen } from '../screens/auth/BootScreen';
+import { AuthNavigator } from './AuthNavigator';
 import { StudentNavigator } from './StudentNavigator';
 import { TeacherNavigator } from './TeacherNavigator';
-import { ParentNavigator }  from './ParentNavigator';
-import { AdminNavigator }   from './AdminNavigator';
+import { ParentNavigator } from './ParentNavigator';
+import { WebOnlyScreen } from '../screens/misc/WebOnlyScreen';
 
-export type AppStackParamList = {
-  Auth:       undefined;
-  Student:    undefined;
-  Teacher:    undefined;
-  Parent:     undefined;
-  Admin:      undefined;
+/**
+ * Root navigator. There is no shared dashboard — the visible stack is chosen by
+ * auth state and role, and it swaps automatically when the session changes
+ * (login / logout / token expiry). Screens never imperatively jump between
+ * roles; they mutate auth state and this re-renders.
+ */
+export const AppNavigator: React.FC = () => {
+  const { status, role } = useAuth();
+
+  if (status === 'booting') {
+    return <BootScreen />;
+  }
+
+  return (
+    <NavigationContainer>
+      {status === 'unauthenticated' || !role ? (
+        <AuthNavigator />
+      ) : role === 'student' ? (
+        <StudentNavigator />
+      ) : role === 'teacher' ? (
+        <TeacherNavigator />
+      ) : role === 'parent' ? (
+        <ParentNavigator />
+      ) : (
+        // admin / super_admin → web only on mobile v1 (per webapp-flows §1, §9).
+        <WebOnlyScreen />
+      )}
+    </NavigationContainer>
+  );
 };
-
-const Stack = createNativeStackNavigator<AppStackParamList>();
-
-export const AppNavigator = () => (
-  <NavigationContainer>
-    <Stack.Navigator
-      initialRouteName="Auth"
-      screenOptions={{ headerShown: false, animation: 'fade' }}
-    >
-      <Stack.Screen name="Auth"    component={AuthNavigator} />
-      <Stack.Screen name="Student" component={StudentNavigator} />
-      <Stack.Screen name="Teacher" component={TeacherNavigator} />
-      <Stack.Screen name="Parent"  component={ParentNavigator} />
-      <Stack.Screen name="Admin"   component={AdminNavigator} />
-    </Stack.Navigator>
-  </NavigationContainer>
-);

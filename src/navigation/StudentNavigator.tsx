@@ -1,33 +1,38 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { StudentStackParamList } from '../types';
+import { StudentStackParamList, StudentTabParamList } from '../types';
 import { Colors } from '../theme';
 import { TabIcon } from '../components/common/TabIcon';
 
-import { HomeScreen }          from '../screens/student/HomeScreen';
-import { CoursesScreen }       from '../screens/student/CoursesScreen';
-import { SubjectListScreen }   from '../screens/student/SubjectListScreen';
-import { ChapterListScreen }   from '../screens/student/ChapterListScreen';
-import { LessonScreen }        from '../screens/student/LessonScreen';
-import { VideoPlayerScreen }   from '../screens/student/VideoPlayerScreen';
-import { AITutorScreen }       from '../screens/student/AITutorScreen';
-import { QuizScreen }          from '../screens/student/QuizScreen';
-import { QuizResultScreen }    from '../screens/student/QuizResultScreen';
-import { ProfileScreen }       from '../screens/student/ProfileScreen';
-import { ProgressScreen }      from '../screens/student/ProgressScreen';
+import { HomeScreen } from '../screens/student/HomeScreen';
+import { CoursesScreen } from '../screens/student/CoursesScreen';
+import { SubjectListScreen } from '../screens/student/SubjectListScreen';
+import { ChapterListScreen } from '../screens/student/ChapterListScreen';
+import { ChapterLessonsScreen } from '../screens/student/ChapterLessonsScreen';
+import { LessonDetailScreen } from '../screens/student/LessonDetailScreen';
+import { LessonVideoScreen } from '../screens/student/LessonVideoScreen';
+import { AITutorScreen } from '../screens/student/AITutorScreen';
+import { QuizListScreen } from '../screens/student/QuizListScreen';
+import { QuizDetailScreen } from '../screens/student/QuizDetailScreen';
+import { QuizScreen } from '../screens/student/QuizScreen';
+import { QuizResultScreen } from '../screens/student/QuizResultScreen';
+import { LiveClassesScreen } from '../screens/student/LiveClassesScreen';
+import { LiveClassDetailScreen } from '../screens/student/LiveClassDetailScreen';
+import { NotificationsScreen } from '../screens/student/NotificationsScreen';
+import { ProfileScreen } from '../screens/student/ProfileScreen';
+import { ProgressScreen } from '../screens/student/ProgressScreen';
 
 // ── Student Tab Navigator ─────────────────────────────────────────────────────
-const Tab = createBottomTabNavigator();
+const Tab = createBottomTabNavigator<StudentTabParamList>();
 
 const StudentTabs = () => (
   <Tab.Navigator
     screenOptions={({ route }) => ({
       headerShown: false,
-      tabBarActiveTintColor:   Colors.primary,
+      tabBarActiveTintColor: Colors.primary,
       tabBarInactiveTintColor: Colors.text3,
-      tabBarStyle: tabBarStyle,
+      tabBarStyle,
       tabBarLabelStyle: tabLabelStyle,
       tabBarItemStyle: { paddingVertical: 2 },
       tabBarIcon: ({ focused, color }) => (
@@ -35,11 +40,11 @@ const StudentTabs = () => (
       ),
     })}
   >
-    <Tab.Screen name="Home"     component={HomeScreen}     options={{ tabBarLabel: 'Home' }} />
-    <Tab.Screen name="Courses"  component={CoursesScreen}  options={{ tabBarLabel: 'Courses' }} />
-    <Tab.Screen name="AITutor"  component={AITutorScreen}  options={{ tabBarLabel: 'AI Tutor' }} />
+    <Tab.Screen name="Home" component={HomeScreen} options={{ tabBarLabel: 'Home' }} />
+    <Tab.Screen name="Courses" component={CoursesScreen} options={{ tabBarLabel: 'Courses' }} />
+    <Tab.Screen name="AITutor" component={AITutorScreen} options={{ tabBarLabel: 'AI Tutor' }} />
     <Tab.Screen name="Progress" component={ProgressScreen} options={{ tabBarLabel: 'Progress' }} />
-    <Tab.Screen name="Profile"  component={ProfileScreen}  options={{ tabBarLabel: 'Profile' }} />
+    <Tab.Screen name="Profile" component={ProfileScreen} options={{ tabBarLabel: 'Profile' }} />
   </Tab.Navigator>
 );
 
@@ -48,27 +53,19 @@ const Stack = createNativeStackNavigator<StudentStackParamList>();
 
 export const StudentNavigator = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
-    <Stack.Screen name="StudentTabs"   component={StudentTabs} />
-    <Stack.Screen name="SubjectList"   component={SubjectListScreen} />
-    <Stack.Screen name="ChapterList"   component={ChapterListScreen} />
-    <Stack.Screen name="Lesson"        component={LessonScreen} />
-    <Stack.Screen
-      name="VideoPlayer"
-      component={VideoPlayerScreen}
-      options={{ animation: 'fade' }}
-    />
-    <Stack.Screen name="PDFNotes"      component={LessonScreen} />
-    <Stack.Screen name="Discussion"    component={LessonScreen} />
-    <Stack.Screen name="AIDoubt"       component={AITutorScreen} />
-    <Stack.Screen name="AISearch"      component={AITutorScreen} />
-    <Stack.Screen name="AIRecommend"   component={AITutorScreen} />
-    <Stack.Screen name="QuizActive"    component={QuizScreen} />
-    <Stack.Screen name="QuizResult"    component={QuizResultScreen} />
-    <Stack.Screen name="Assignment"    component={QuizScreen} />
-    <Stack.Screen name="Achievements"  component={ProfileScreen} />
-    <Stack.Screen name="WeakAreas"     component={ProgressScreen} />
-    <Stack.Screen name="Notifications" component={ProfileScreen} />
-    <Stack.Screen name="RecentlyViewed" component={CoursesScreen} />
+    <Stack.Screen name="StudentTabs" component={StudentTabs} />
+    <Stack.Screen name="SubjectList" component={SubjectListScreen} />
+    <Stack.Screen name="ChapterList" component={ChapterListScreen} />
+    <Stack.Screen name="ChapterLessons" component={ChapterLessonsScreen} />
+    <Stack.Screen name="LessonDetail" component={LessonDetailScreen} />
+    <Stack.Screen name="LessonVideo" component={LessonVideoScreen} options={{ animation: 'fade' }} />
+    <Stack.Screen name="QuizList" component={QuizListScreen} />
+    <Stack.Screen name="QuizDetail" component={QuizDetailScreen} />
+    <Stack.Screen name="QuizActive" component={QuizScreen} />
+    <Stack.Screen name="QuizResult" component={QuizResultScreen} />
+    <Stack.Screen name="LiveClasses" component={LiveClassesScreen} />
+    <Stack.Screen name="LiveClassDetail" component={LiveClassDetailScreen} />
+    <Stack.Screen name="Notifications" component={NotificationsScreen} />
   </Stack.Navigator>
 );
 
@@ -92,5 +89,3 @@ const tabLabelStyle = {
   fontWeight: '600' as const,
   marginTop: 2,
 };
-
-const styles = StyleSheet.create({});

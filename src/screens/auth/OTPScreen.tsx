@@ -1,240 +1,361 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, StatusBar } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, StatusBar, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../types';
 import { Colors, Radius } from '../../theme';
 import { Button } from '../../components/common/Button';
+import { Icon } from '../../components/common/Icon';
+import { useAuth } from '../../context/AuthContext';
+import { useAsyncAction } from '../../hooks/useAsyncAction';
+import { ApiError } from '../../api';
+import { Env } from '../../config/env';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'OTP'>;
 
+const OTP_LENGTH = 6;
+const OTP_TTL = 10 * 60; // valid for 10 minutes (api.md §3.3)
+
 export const OTPScreen: React.FC<Props> = ({ navigation, route }) => {
-  const { phone } = route.params;
-  const [otp, setOtp]     = useState(['', '', '', '']);
-  const [timer, setTimer] = useState(165);
+  const { phone, devOtp } = route.params;
+  const { otpVerify, otpSend } = useAuth();
+  const { submitting, run } = useAsyncAction();
 
-  const r0 = useRef<TextInput>(null);
-  const r1 = useRef<TextInput>(null);
-  const r2 = useRef<TextInput>(null);
-  const r3 = useRef<TextInput>(null);
-  const refs = [r0, r1, r2, r3];
+  const [digits, setDigits] = useState<string[]>(Array(OTP_LENGTH).fill(''));
+  const [error, setError] = useState<string | null>(null);
+  const [expired, setExpired] = useState(false);
+  const [shake, setShake] = useState(false);
+  const [hintOtp, setHintOtp] = useState<string | undefined>(devOtp);
+  // `round` bumps on each (re)send to restart the countdown + resend cooldown.
+  const [round, setRound] = useState(0);
+  const [canResend, setCanResend] = useState(false);
 
+  const inputs = useRef<Array<TextInput | null>>([]);
+  const verifiedRef = useRef(false);
+
+  // Enable "Resend" after a 30s cooldown. This is a one-shot timeout — NOT a
+  // per-second tick — so it doesn't re-render the screen (and the per-second
+  // countdown lives in its own <Countdown> child below). That keeps the code
+  // boxes from re-rendering every second, which is what was stealing focus.
   useEffect(() => {
-    const id = setInterval(() => setTimer(t => (t > 0 ? t - 1 : 0)), 1000);
-    return () => clearInterval(id);
-  }, []);
+    setCanResend(false);
+    const id = setTimeout(() => setCanResend(true), 30_000);
+    return () => clearTimeout(id);
+  }, [round]);
 
-  const fmt = (s: number) =>
-    `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+  const handleExpire = useCallback(() => setExpired(true), []);
 
-  const handleDigit = (text: string, i: number) => {
-    const d = text.replace(/\D/g, '').slice(-1);
-    const next = [...otp];
-    next[i] = d;
-    setOtp(next);
-    if (d && i < 3) refs[i + 1].current?.focus();
+  const code = digits.join('');
+
+  const submit = async (value: string) => {
+    if (verifiedRef.current || submitting) return;
+    setError(null);
+    await run(async () => {
+      try {
+        verifiedRef.current = true;
+        await otpVerify({ phone, otp: value });
+        // success → root navigator swaps to the role stack automatically.
+      } catch (err) {
+        verifiedRef.current = false;
+        if (err instanceof ApiError) {
+          if (err.code === 'otp_expired') {
+            setExpired(true);
+            setError('This code has expired. Request a new one.');
+          } else if (err.code === 'otp_invalid' || err.kind === 'validation') {
+            setError('Wrong code. Please check and try again.');
+            setShake(true);
+            setTimeout(() => setShake(false), 400);
+          } else {
+            setError(err.message);
+          }
+        } else {
+          setError('Could not verify the code. Try again.');
+        }
+        throw err;
+      }
+    });
   };
 
-  const handleKey = (key: string, i: number) => {
-    if (key === 'Backspace' && !otp[i] && i > 0) refs[i - 1].current?.focus();
+  const handleDigit = (text: string, index: number) => {
+    const clean = text.replace(/\D/g, '');
+    if (error) setError(null);
+
+    // Support paste of the full code into any box.
+    if (clean.length > 1) {
+      const next = clean.slice(0, OTP_LENGTH).split('');
+      const padded = Array(OTP_LENGTH)
+        .fill('')
+        .map((_, i) => next[i] ?? '');
+      setDigits(padded);
+      const lastFilled = Math.min(next.length, OTP_LENGTH) - 1;
+      inputs.current[lastFilled]?.focus();
+      if (next.length >= OTP_LENGTH) submit(padded.join(''));
+      return;
+    }
+
+    const d = clean.slice(-1);
+    const updated = [...digits];
+    updated[index] = d;
+    setDigits(updated);
+    if (d && index < OTP_LENGTH - 1) inputs.current[index + 1]?.focus();
+
+    const joined = updated.join('');
+    if (joined.length === OTP_LENGTH && !joined.includes('')) submit(joined);
   };
 
-  const filled = otp.filter(Boolean).length;
-  const timerPct = (timer / 165) * 100;
+  const handleKey = (key: string, index: number) => {
+    if (key === 'Backspace' && !digits[index] && index > 0) {
+      inputs.current[index - 1]?.focus();
+    }
+  };
+
+  const resend = async () => {
+    setError(null);
+    const result = await run(async () => {
+      try {
+        return await otpSend(phone);
+      } catch (err) {
+        if (err instanceof ApiError) {
+          setError(err.kind === 'rate_limited' ? 'Please wait a minute before requesting again.' : err.message);
+        }
+        throw err;
+      }
+    });
+    if (result) {
+      setDigits(Array(OTP_LENGTH).fill(''));
+      setExpired(false);
+      setRound(r => r + 1);
+      setHintOtp(result.otp);
+      inputs.current[0]?.focus();
+    }
+  };
+
+  const filled = useMemo(() => digits.filter(Boolean).length, [digits]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
 
-      {/* Topbar */}
       <View style={styles.topbar}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Text style={styles.backIcon}>‹</Text>
         </TouchableOpacity>
-        <Text style={styles.topTitle}>Verify Account</Text>
+        <Text style={styles.topTitle}>Verify Phone</Text>
         <View style={{ width: 34 }} />
       </View>
 
-      {/* Step progress */}
-      <View style={styles.steps}>
-        <View style={styles.stepBars}>
-          {[1, 2, 3, 4].map(i => (
-            <View key={i} style={[styles.stepBar, i <= 3 ? styles.stepOn : styles.stepOff]} />
-          ))}
-        </View>
-        <View style={styles.stepLabels}>
-          <Text style={styles.stepLeft}>STEP 3 OF 4</Text>
-          <Text style={styles.stepRight}>PHONE VERIFICATION</Text>
-        </View>
-      </View>
+      <ScrollView
+        style={styles.flexOne}
+        contentContainerStyle={styles.body}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
+        automaticallyAdjustKeyboardInsets
+      >
+        <Text style={styles.heading}>Enter the code</Text>
+        <Text style={styles.sub}>
+          A {OTP_LENGTH}-digit code was sent to <Text style={styles.phone}>{phone}</Text>
+        </Text>
 
-      {/* Content */}
-      <View style={styles.body}>
-        <Text style={styles.heading}>Enter OTP</Text>
-        <Text style={styles.sub}>A 4-digit code was sent to your mobile number</Text>
-
-        {/* Phone row */}
-        <View style={styles.phoneRow}>
-          <View style={styles.phoneLeft}>
-            <View style={styles.phoneIcon}><Text style={{ fontSize: 18 }}>📱</Text></View>
-            <View>
-              <Text style={styles.sentLabel}>SENT TO</Text>
-              <Text style={styles.phoneNum}>+91 {phone || '98765 43210'}</Text>
-            </View>
+        {/* DEV-only echoed OTP (api.md §3.3 — local env only) */}
+        {Env.isLocal && hintOtp ? (
+          <View style={styles.devBanner}>
+            <Text style={styles.devBannerText}>DEV ONLY · Your OTP is {hintOtp}</Text>
           </View>
-          <TouchableOpacity>
-            <Text style={styles.editBtn}>Edit</Text>
-          </TouchableOpacity>
-        </View>
+        ) : null}
 
-        {/* OTP Boxes */}
-        <View style={styles.otpRow}>
-          {[0, 1, 2, 3].map(i => {
-            const isFilled  = !!otp[i];
-            const isActive  = otp.filter(Boolean).length === i;
+        <View style={[styles.otpRow, shake && styles.otpRowShake]}>
+          {Array.from({ length: OTP_LENGTH }).map((_, i) => {
+            const isFilled = !!digits[i];
+            const isActive = filled === i;
             return (
-              <View key={i} style={[styles.box, isFilled && styles.boxFilled, isActive && styles.boxActive]}>
+              <View
+                key={i}
+                style={[styles.box, isFilled && styles.boxFilled, isActive && styles.boxActive, !!error && styles.boxError]}
+              >
                 <TextInput
-                  ref={refs[i]}
+                  ref={el => {
+                    inputs.current[i] = el;
+                  }}
                   style={styles.boxInput}
-                  value={otp[i]}
+                  value={digits[i]}
                   onChangeText={t => handleDigit(t, i)}
                   onKeyPress={({ nativeEvent }) => handleKey(nativeEvent.key, i)}
                   keyboardType="number-pad"
-                  maxLength={1}
+                  maxLength={OTP_LENGTH}
                   textAlign="center"
+                  autoFocus={i === 0}
+                  editable={!submitting}
                 />
-                {isActive && !otp[i] && <View style={styles.cursor} pointerEvents="none" />}
               </View>
             );
           })}
         </View>
 
-        {/* Timer */}
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+
         <View style={styles.timerRow}>
-          <View style={styles.timerCircle}>
-            {/* Progress ring approximation */}
-            <View style={[styles.timerRing, { borderColor: Colors.primary, opacity: timerPct / 100 }]} />
-            <Text style={styles.timerTxt}>{fmt(timer)}</Text>
-          </View>
-          <View>
-            <Text style={styles.expireTxt}>
-              OTP expires in <Text style={{ color: Colors.primary }}>{fmt(timer)}</Text>
+          <Countdown round={round} expired={expired} onExpire={handleExpire} />
+          <TouchableOpacity onPress={resend} disabled={submitting || (!canResend && !expired)}>
+            <Text
+              style={[
+                styles.resend,
+                (submitting || (!canResend && !expired)) && styles.resendDisabled,
+              ]}
+            >
+              Resend
             </Text>
-            <Text style={styles.resendTxt}>
-              Didn't receive it? <Text style={{ color: Colors.primary, fontWeight: '700' }}>Resend</Text>
-            </Text>
-          </View>
+          </TouchableOpacity>
         </View>
 
-        {/* Security badge */}
-        <View style={styles.security}>
-          <Text style={{ fontSize: 14 }}>🔒</Text>
-          <Text style={styles.securityTxt}>
-            Secured by <Text style={{ fontWeight: '700', color: Colors.text }}>Bodhira LMS</Text> · OTP valid for 10 minutes only
-          </Text>
-        </View>
-      </View>
-
-      {/* CTA pinned to bottom */}
-      <View style={styles.cta}>
         <Button
-          label="Verify & Continue →"
+          label={submitting ? 'Verifying…' : 'Verify & Continue →'}
           variant="primary"
-          onPress={() => navigation.navigate('RoleSelection')}
-          disabled={filled < 4}
+          onPress={() => submit(code)}
+          loading={submitting}
+          disabled={submitting || filled < OTP_LENGTH}
           style={styles.verifyBtn}
         />
-      </View>
+
+        <View style={styles.security}>
+          <Icon name="lock" size={14} color={Colors.text2} />
+          <Text style={styles.securityTxt}>
+            Secured by <Text style={{ fontWeight: '700', color: Colors.text }}>Bodhira LMS</Text> · code
+            valid for 10 minutes
+          </Text>
+        </View>
+        </ScrollView>
     </SafeAreaView>
   );
 };
 
+/**
+ * Owns the per-second tick in its OWN component so the parent OTPScreen (and the
+ * 6 code boxes) don't re-render every second. Restarts whenever `round` changes
+ * (i.e. after a resend). `expired` forces the expired label for a server-side
+ * `otp_expired` before the local countdown reaches zero.
+ */
+const Countdown: React.FC<{ round: number; expired: boolean; onExpire: () => void }> = ({
+  round,
+  expired,
+  onExpire,
+}) => {
+  const [seconds, setSeconds] = useState(OTP_TTL);
+  useEffect(() => {
+    setSeconds(OTP_TTL);
+    const id = setInterval(() => {
+      setSeconds(s => {
+        if (s <= 1) {
+          clearInterval(id);
+          onExpire();
+          return 0;
+        }
+        return s - 1;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [round, onExpire]);
+
+  if (expired || seconds <= 0) {
+    return <Text style={styles.expiredTxt}>Code expired</Text>;
+  }
+  const mm = String(Math.floor(seconds / 60)).padStart(2, '0');
+  const ss = String(seconds % 60).padStart(2, '0');
+  return (
+    <Text style={styles.expireTxt}>
+      Expires in <Text style={styles.timerVal}>{`${mm}:${ss}`}</Text>
+    </Text>
+  );
+};
+
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FEFAF6' },
+  safe: { flex: 1, backgroundColor: Colors.bg },
   topbar: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border2,
   },
   backBtn: {
-    width: 34, height: 34, borderRadius: 10,
-    backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.border,
-    alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#2A0E13', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3, elevation: 1,
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  backIcon:  { fontSize: 24, color: Colors.text, lineHeight: 28 },
-  topTitle:  { fontSize: 14, fontWeight: '800', color: Colors.text },
-  steps:     { paddingHorizontal: 20, paddingBottom: 20 },
-  stepBars:  { flexDirection: 'row', gap: 4 },
-  stepBar:   { flex: 1, height: 3, borderRadius: 2 },
-  stepOn:    { backgroundColor: Colors.primary },
-  stepOff:   { backgroundColor: Colors.border },
-  stepLabels:{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
-  stepLeft:  { fontSize: 9, fontWeight: '700', color: Colors.primary },
-  stepRight: { fontSize: 9, fontWeight: '600', color: Colors.text3 },
-  body:      { flex: 1, paddingHorizontal: 22 },
-  heading:   { fontSize: 22, fontWeight: '900', color: Colors.text, letterSpacing: -0.44, marginBottom: 6 },
-  sub:       { fontSize: 12, color: Colors.text2, lineHeight: 19, marginBottom: 22 },
-  phoneRow: {
-    backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.border,
-    borderRadius: Radius.md, paddingVertical: 11, paddingHorizontal: 14,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    marginBottom: 32, shadowColor: '#2A0E13',
-    shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1,
+  backIcon: { fontSize: 24, color: Colors.text },
+  topTitle: { fontSize: 15, fontWeight: '800', color: Colors.text },
+  flexOne: { flex: 1 },
+  body: { flexGrow: 1, paddingHorizontal: 22, paddingTop: 24, paddingBottom: 28 },
+  heading: { fontSize: 22, fontWeight: '900', color: Colors.text, letterSpacing: -0.44, marginBottom: 6 },
+  sub: { fontSize: 13, color: Colors.text2, lineHeight: 19, marginBottom: 18 },
+  phone: { fontWeight: '800', color: Colors.text },
+  devBanner: {
+    backgroundColor: Colors.warningLight,
+    borderWidth: 1,
+    borderColor: Colors.warning,
+    borderRadius: Radius.md,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 18,
   },
-  phoneLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  phoneIcon: {
-    width: 34, height: 34, borderRadius: 9,
-    backgroundColor: Colors.brand, alignItems: 'center', justifyContent: 'center',
-  },
-  sentLabel: { fontSize: 10, fontWeight: '700', color: Colors.text3, letterSpacing: 0.4, marginBottom: 2 },
-  phoneNum:  { fontSize: 13, fontWeight: '800', color: Colors.text },
-  editBtn:   { fontSize: 11, fontWeight: '700', color: Colors.primary, textDecorationLine: 'underline' },
-  otpRow:    { flexDirection: 'row', gap: 12, justifyContent: 'center', marginBottom: 28 },
+  devBannerText: { fontSize: 12, fontWeight: '800', color: Colors.warning, textAlign: 'center', letterSpacing: 0.5 },
+  otpRow: { flexDirection: 'row', gap: 8, justifyContent: 'space-between', marginBottom: 14 },
+  otpRowShake: { transform: [{ translateX: 2 }] },
   box: {
-    width: 64, height: 72,
-    backgroundColor: Colors.white, borderWidth: 1.5, borderColor: Colors.border,
-    borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center',
+    flex: 1,
+    height: 60,
+    backgroundColor: Colors.white,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    borderRadius: Radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  boxFilled: {
-    borderColor: Colors.primary,
-    shadowColor: Colors.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.18, shadowRadius: 8, elevation: 2,
-  },
+  boxFilled: { borderColor: Colors.primary },
   boxActive: { borderWidth: 2, borderColor: Colors.primary },
+  boxError: { borderColor: Colors.danger },
   boxInput: {
-    position: 'absolute', width: '100%', height: '100%',
-    fontSize: 24, fontWeight: '800', color: Colors.text, textAlign: 'center',
-    backgroundColor: 'transparent',
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    fontSize: 22,
+    fontWeight: '800',
+    color: Colors.text,
+    textAlign: 'center',
   },
-  cursor: {
-    width: 2, height: 26, backgroundColor: Colors.primary,
-    borderRadius: 1, opacity: 0.85,
-  },
-  timerRow:   { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 18 },
-  timerCircle:{
-    width: 48, height: 48, borderRadius: 24,
-    alignItems: 'center', justifyContent: 'center', position: 'relative',
-    backgroundColor: 'rgba(196,149,96,0.08)',
-  },
-  timerRing: {
-    position: 'absolute', width: 44, height: 44, borderRadius: 22,
-    borderWidth: 2.5, borderColor: Colors.primary,
-  },
-  timerTxt:   { fontSize: 10, fontWeight: '800', color: Colors.primaryDark },
-  expireTxt:  { fontSize: 12, fontWeight: '700', color: Colors.text },
-  resendTxt:  { fontSize: 10, color: Colors.text3, marginTop: 2 },
-  security: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.border,
-    borderRadius: 10, padding: 10, paddingHorizontal: 12,
-  },
-  securityTxt: { fontSize: 10, color: Colors.text2, flex: 1, lineHeight: 15 },
-  cta: {
-    padding: 16, paddingHorizontal: 18,
-    backgroundColor: '#FEFAF6', borderTopWidth: 1, borderTopColor: '#F3E9D8',
-  },
+  error: { fontSize: 12, color: Colors.danger, fontWeight: '600', marginBottom: 10 },
+  timerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
+  expireTxt: { fontSize: 12, color: Colors.text2 },
+  expiredTxt: { fontSize: 12, color: Colors.danger, fontWeight: '700' },
+  timerVal: { fontWeight: '800', color: Colors.primary },
+  resend: { fontSize: 12, fontWeight: '700', color: Colors.primary },
+  resendDisabled: { color: Colors.text3 },
   verifyBtn: {
     shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 16, elevation: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 4,
   },
+  security: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 10,
+    padding: 10,
+    paddingHorizontal: 12,
+    marginTop: 18,
+  },
+  securityTxt: { fontSize: 10, color: Colors.text2, flex: 1, lineHeight: 15 },
 });

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Colors, Radius } from '../../theme';
-import { Chip } from './Chip';
+import { Icon } from './Icon';
 
 interface AIBubbleProps {
   title?: string;
@@ -12,7 +12,7 @@ interface AIBubbleProps {
 export const AIBubble: React.FC<AIBubbleProps> = ({ title, message, actions }) => (
   <View style={styles.card}>
     <View style={styles.row}>
-      <Text style={styles.robot}>🤖</Text>
+      <Icon name="robot" size={20} color={Colors.primary} />
       <View style={styles.content}>
         {title && <Text style={styles.title}>{title}</Text>}
         <Text style={styles.message}>{message}</Text>
@@ -54,7 +54,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   row: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  robot: { fontSize: 20 },
   content: { flex: 1 },
   title: { fontSize: 12, fontWeight: '700', color: Colors.primary, marginBottom: 2 },
   message: { fontSize: 11, color: Colors.text, lineHeight: 17 },

@@ -4,6 +4,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Radius, Shadow } from '../../theme';
 import { ProgressBar } from '../../components/common/ProgressBar';
+import { Icon, IconName } from '../../components/common/Icon';
 
 const classes = [
   { name: 'Class 11-A · Physics',   students: 42, pending: 3, pct: 78 },
@@ -11,7 +12,7 @@ const classes = [
   { name: 'Class 10-C · Maths',     students: 45, pending: 1, pct: 88 },
 ];
 
-export const TeacherHomeScreen: React.FC<{ navigation: any }> = ({ navigation }) => (
+export const TeacherHomeScreen: React.FC = () => (
   <View style={styles.container}>
     <StatusBar barStyle="light-content" backgroundColor="#1A0A0C" />
 
@@ -24,7 +25,7 @@ export const TeacherHomeScreen: React.FC<{ navigation: any }> = ({ navigation })
       <SafeAreaView edges={['top']} style={styles.header}>
         <View style={styles.topbar}>
           <View>
-            <Text style={styles.greeting}>Good Morning 👋</Text>
+            <Text style={styles.greeting}>Good Morning</Text>
             <Text style={styles.name}>Dr. Meera Sharma</Text>
           </View>
           <View style={styles.avatar}><Text style={styles.avatarText}>M</Text></View>
@@ -46,7 +47,7 @@ export const TeacherHomeScreen: React.FC<{ navigation: any }> = ({ navigation })
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Pending tasks */}
         <View style={styles.alertCard}>
-          <Text style={{ fontSize: 18 }}>⚠️</Text>
+          <Icon name="warning" size={18} color={Colors.warning} />
           <View style={styles.alertContent}>
             <Text style={styles.alertTitle}>11 assignments need review</Text>
             <Text style={styles.alertSub}>3 overdue · Tap to review</Text>
@@ -61,7 +62,7 @@ export const TeacherHomeScreen: React.FC<{ navigation: any }> = ({ navigation })
         {classes.map((c, i) => (
           <TouchableOpacity key={i} style={styles.classCard} activeOpacity={0.85}>
             <View style={styles.classLeft}>
-              <View style={styles.classIcon}><Text style={{ fontSize: 20 }}>📚</Text></View>
+              <View style={styles.classIcon}><Icon name="library" size={20} color={Colors.primary} /></View>
               <View>
                 <Text style={styles.className}>{c.name}</Text>
                 <Text style={styles.classMeta}>{c.students} students · {c.pending} pending</Text>
@@ -75,14 +76,14 @@ export const TeacherHomeScreen: React.FC<{ navigation: any }> = ({ navigation })
         {/* Quick Actions */}
         <Text style={styles.sectionTitle}>Quick Actions</Text>
         <View style={styles.actionsGrid}>
-          {[
-            { icon: '📝', label: 'Create Quiz' },
-            { icon: '📤', label: 'Upload Content' },
-            { icon: '📊', label: 'Analytics' },
-            { icon: '💬', label: 'Announcements' },
-          ].map((a, i) => (
+          {([
+            { icon: 'edit',   label: 'Create Quiz' },
+            { icon: 'upload', label: 'Upload Content' },
+            { icon: 'chart',  label: 'Analytics' },
+            { icon: 'chat',   label: 'Announcements' },
+          ] as { icon: IconName; label: string }[]).map((a, i) => (
             <TouchableOpacity key={i} style={styles.actionTile}>
-              <Text style={{ fontSize: 28 }}>{a.icon}</Text>
+              <Icon name={a.icon} size={28} color={Colors.primary} />
               <Text style={styles.actionLabel}>{a.label}</Text>
             </TouchableOpacity>
           ))}
@@ -90,7 +91,7 @@ export const TeacherHomeScreen: React.FC<{ navigation: any }> = ({ navigation })
 
         {/* AI Insights */}
         <View style={styles.aiCard}>
-          <Text style={{ fontSize: 18 }}>🤖</Text>
+          <Icon name="robot" size={18} color={Colors.primary} />
           <View style={styles.aiContent}>
             <Text style={styles.aiTitle}>AI Class Insights</Text>
             <Text style={styles.aiText}>

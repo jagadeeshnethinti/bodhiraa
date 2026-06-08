@@ -1,84 +1,130 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  StatusBar,
+  RefreshControl,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Colors, Radius } from '../../theme';
-import { CourseCard } from '../../components/common/CourseCard';
-
-const TABS = ['All (5)', 'Started', 'Paused'];
-
-const courses = [
-  { emoji: '⚗️', title: 'Organic Chemistry', subtitle: 'Reactions & Mechanisms · 34 min left', progress: 62, chapter: 'Ch 5 of 12', bg: '#FEF3C7', v: 'warning'  as const },
-  { emoji: '📐', title: 'Mathematics',        subtitle: 'Limits & Derivatives · 52 min left',  progress: 38, chapter: 'Ch 3 of 15', bg: '#FDF4E8', v: 'primary'  as const },
-  { emoji: '🔬', title: 'Physics',            subtitle: 'Electrostatics · 1h 12 min left',       progress: 78, chapter: 'Ch 7 of 14', bg: '#ECFDF5', v: 'success'  as const },
-];
+import { Colors, Radius, Shadow } from '../../theme';
+import { LoadingState, ErrorState, EmptyState } from '../../components/common/ScreenStates';
+import { SearchBar } from '../../components/common/SearchBar';
+import { useApi } from '../../hooks/useApi';
+import { StudentApi, type ApiSubject } from '../../api';
+import { Icon } from '../../components/common/Icon';
+import { subjectIconName, subjectTint, subjectColor } from '../../utils/ui';
 
 export const CoursesScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
-  const [activeTab, setActiveTab] = useState(0);
+  const { data, loading, error, refetch, refreshing } = useApi(signal => StudentApi.subjects(signal), []);
+  const [query, setQuery] = useState('');
+
+  const subjects = useMemo(() => {
+    const list = data ?? [];
+    const q = query.trim().toLowerCase();
+    return q ? list.filter(s => s.name.toLowerCase().includes(q)) : list;
+  }, [data, query]);
+
+  const open = (s: ApiSubject) =>
+    navigation.navigate('ChapterList', {
+      subjectId: s.id,
+      subjectName: s.name,
+      icon: s.icon,
+      color: s.color,
+    });
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
 
-      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.heading}>In Progress</Text>
-        <TouchableOpacity style={styles.iconBtn}>
-          <Text style={{ fontSize: 16 }}>🔍</Text>
-        </TouchableOpacity>
+        <Text style={styles.heading}>My Courses</Text>
+        <Text style={styles.headerSub}>{data?.length ?? 0} subjects</Text>
       </View>
 
-      {/* Pill tabs */}
-      <View style={styles.tabs}>
-        {TABS.map((t, i) => (
-          <TouchableOpacity
-            key={t}
-            style={[styles.tab, activeTab === i && styles.tabActive]}
-            onPress={() => setActiveTab(i)}
-          >
-            <Text style={[styles.tabText, activeTab === i && styles.tabTextActive]}>{t}</Text>
-          </TouchableOpacity>
-        ))}
+      <View style={styles.searchWrap}>
+        <SearchBar placeholder="Search subjects…" value={query} onChangeText={setQuery} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {courses.map((c, i) => (
-          <CourseCard
-            key={i}
-            emoji={c.emoji}
-            title={c.title}
-            subtitle={c.subtitle}
-            progress={c.progress}
-            chapterInfo={c.chapter}
-            progressVariant={c.v}
-            backgroundColor={c.bg}
-            onPress={() => navigation.navigate('ChapterList', { subject: { emoji: c.emoji, name: c.title, chapters: 12, lessons: 48, progress: c.progress } })}
-            onResume={() => navigation.navigate('ChapterList', { subject: { emoji: c.emoji, name: c.title, chapters: 12, lessons: 48, progress: c.progress } })}
-          />
-        ))}
-      </ScrollView>
+      {loading && !data ? (
+        <LoadingState />
+      ) : error && !data ? (
+        <ErrorState message={error} onRetry={refetch} />
+      ) : (
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={Colors.primary} />}
+        >
+          {subjects.length === 0 ? (
+            <EmptyState
+              icon="library"
+              title={query ? 'No matches' : 'No subjects yet'}
+              sub={query ? 'Try a different search term.' : 'Subjects will appear here once assigned.'}
+            />
+          ) : (
+            subjects.map(s => (
+              <TouchableOpacity key={s.id} style={styles.card} activeOpacity={0.85} onPress={() => open(s)}>
+                <View style={[styles.banner, { backgroundColor: subjectTint(s.color) }]}>
+                  <Icon name={subjectIconName(s.icon)} size={34} color={subjectColor(s.color)} />
+                </View>
+                <View style={styles.body}>
+                  <Text style={styles.title} numberOfLines={1}>
+                    {s.name}
+                  </Text>
+                  <Text style={styles.meta}>
+                    {s.chapters_count} {s.chapters_count === 1 ? 'chapter' : 'chapters'}
+                    {s.grade ? ` · Grade ${s.grade}` : ''}
+                  </Text>
+                  <View style={[styles.openBtn, { borderColor: subjectColor(s.color) }]}>
+                    <Text style={[styles.openTxt, { color: subjectColor(s.color) }]}>Open →</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ))
+          )}
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  safe:   { flex: 1, backgroundColor: Colors.bg },
+  safe: { flex: 1, backgroundColor: Colors.bg },
   header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12,
-    borderBottomWidth: 1, borderBottomColor: Colors.border2,
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 10,
   },
-  heading: { fontSize: 20, fontWeight: '800', color: Colors.text },
-  iconBtn: {
-    width: 36, height: 36, borderRadius: 10, backgroundColor: Colors.bg2,
-    alignItems: 'center', justifyContent: 'center',
+  heading: { fontSize: 22, fontWeight: '800', color: Colors.text },
+  headerSub: { fontSize: 12, fontWeight: '600', color: Colors.text3 },
+  searchWrap: { paddingHorizontal: 16, paddingBottom: 8 },
+  scroll: { paddingHorizontal: 16, paddingTop: 8, gap: 12, paddingBottom: 24 },
+  card: {
+    backgroundColor: Colors.white,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border2,
+    overflow: 'hidden',
+    ...Shadow.sm,
   },
-  tabs: {
-    flexDirection: 'row', backgroundColor: Colors.bg2, borderRadius: 10,
-    padding: 3, gap: 3, marginHorizontal: 16, marginBottom: 14, marginTop: 12,
+  banner: { height: 76, alignItems: 'center', justifyContent: 'center' },
+  body: { padding: 12, gap: 8 },
+  title: { fontSize: 14, fontWeight: '700', color: Colors.text },
+  meta: { fontSize: 11, color: Colors.text2 },
+  openBtn: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: Radius.full,
+    borderWidth: 1.5,
   },
-  tab:           { flex: 1, alignItems: 'center', paddingVertical: 7, borderRadius: 8 },
-  tabActive:     { backgroundColor: Colors.white, shadowColor: '#2A0E13', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3, elevation: 2 },
-  tabText:       { fontSize: 11, fontWeight: '600', color: Colors.text2 },
-  tabTextActive: { fontWeight: '700', color: Colors.brand },
-  scroll:        { paddingHorizontal: 16, gap: 12, paddingBottom: 16 },
+  openTxt: { fontSize: 11, fontWeight: '700' },
 });

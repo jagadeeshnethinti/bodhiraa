@@ -1,24 +1,48 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, StatusBar, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Radius, Shadow } from '../../theme';
-import { ProgressBar } from '../../components/common/ProgressBar';
 import { StatCard } from '../../components/common/StatCard';
+import { LoadingState, ErrorState, EmptyState } from '../../components/common/ScreenStates';
+import { useApi } from '../../hooks/useApi';
+import { StudentApi } from '../../api';
+import { useAuth } from '../../context/AuthContext';
+import { Icon, IconName } from '../../components/common/Icon';
+import { subjectIconName, subjectColor, subjectTint } from '../../utils/ui';
 
-const weeks = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const studyData = [45, 90, 60, 120, 75, 150, 30];
-const maxStudy = 150;
+const prettify = (key: string) => key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
-const subjectProgress = [
-  { emoji: '⚗️', name: 'Chemistry', progress: 62, variant: 'warning'  as const },
-  { emoji: '📐', name: 'Maths',     progress: 38, variant: 'primary'  as const },
-  { emoji: '🔬', name: 'Physics',   progress: 78, variant: 'success'  as const },
-  { emoji: '🧬', name: 'Biology',   progress: 45, variant: 'primary'  as const },
-  { emoji: '📖', name: 'English',   progress: 91, variant: 'teal'     as const },
-];
+export const ProgressScreen: React.FC<{ navigation: any }> = () => {
+  const { role } = useAuth();
+  const isStudent = role === 'student';
 
-export const ProgressScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
-  const [period, setPeriod] = useState<'week' | 'month'>('week');
+  const profile = useApi(signal => (isStudent ? StudentApi.profile(signal) : Promise.resolve(null)), [isStudent]);
+  const subjects = useApi(signal => (isStudent ? StudentApi.subjects(signal) : Promise.resolve([])), [isStudent]);
+
+  const stats = useMemo(() => {
+    const obj = (profile.data ?? {}) as Record<string, unknown>;
+    return Object.entries(obj)
+      .filter(([, v]) => typeof v === 'number')
+      .slice(0, 3)
+      .map(([k, v]) => ({ key: k, label: prettify(k), value: String(v) }));
+  }, [profile.data]);
+
+  // Non-student roles reuse this screen as a tab — show a neutral placeholder
+  // rather than calling student-only endpoints (which would 403).
+  if (!isStudent) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
+        <View style={styles.header}>
+          <Text style={styles.heading}>Reports</Text>
+        </View>
+        <EmptyState icon="chart" title="Reports are coming to mobile" sub="Use the web dashboard for full analytics in v1." />
+      </SafeAreaView>
+    );
+  }
+
+  const loading = profile.loading && !profile.data;
+  const subjectList = subjects.data ?? [];
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -26,90 +50,65 @@ export const ProgressScreen: React.FC<{ navigation: any }> = ({ navigation }) =>
 
       <View style={styles.header}>
         <Text style={styles.heading}>My Progress</Text>
-        <View style={styles.periodSwitch}>
-          <TouchableOpacity
-            style={[styles.periodBtn, period === 'week' && styles.periodActive]}
-            onPress={() => setPeriod('week')}
-          >
-            <Text style={[styles.periodText, period === 'week' && styles.periodTextActive]}>Week</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.periodBtn, period === 'month' && styles.periodActive]}
-            onPress={() => setPeriod('month')}
-          >
-            <Text style={[styles.periodText, period === 'month' && styles.periodTextActive]}>Month</Text>
-          </TouchableOpacity>
-        </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* Overall stats */}
-        <View style={styles.statsRow}>
-          <StatCard emoji="🔥" value="14" label="DAY STREAK" valueColor={Colors.warning} />
-          <StatCard emoji="📚" value="42" label="LESSONS DONE" valueColor={Colors.primary} />
-          <StatCard emoji="⏱" value="18h" label="STUDY TIME" valueColor={Colors.success} />
-        </View>
+      {loading ? (
+        <LoadingState />
+      ) : profile.error && !profile.data ? (
+        <ErrorState message={profile.error} onRetry={profile.refetch} />
+      ) : (
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={profile.refreshing || subjects.refreshing}
+              onRefresh={() => {
+                profile.refetch();
+                subjects.refetch();
+              }}
+              tintColor={Colors.primary}
+            />
+          }
+        >
+          {stats.length > 0 ? (
+            <View style={styles.statsRow}>
+              {stats.map((s, i) => (
+                <StatCard
+                  key={s.key}
+                  icon={(['fire', 'library', 'clock'][i] ?? 'star') as IconName}
+                  value={s.value}
+                  label={s.label.toUpperCase()}
+                  valueColor={[Colors.warning, Colors.primary, Colors.success][i] ?? Colors.primary}
+                />
+              ))}
+            </View>
+          ) : (
+            <View style={styles.noStats}>
+              <Text style={styles.noStatsText}>Your stats will appear here as you study.</Text>
+            </View>
+          )}
 
-        {/* Study chart */}
-        <View style={styles.chartCard}>
-          <Text style={styles.chartTitle}>Study Time (minutes/day)</Text>
-          <View style={styles.chart}>
-            {studyData.map((val, i) => (
-              <View key={i} style={styles.barWrap}>
-                <View style={styles.barTrack}>
-                  <View
-                    style={[
-                      styles.bar,
-                      { height: `${(val / maxStudy) * 100}%` as any },
-                      i === 5 && { backgroundColor: Colors.primary },
-                    ]}
-                  />
+          <Text style={styles.sectionTitle}>Subjects</Text>
+          {subjectList.length === 0 ? (
+            <EmptyState icon="library" title="No subjects yet" />
+          ) : (
+            subjectList.map(s => (
+              <View key={s.id} style={styles.subjectRow}>
+                <View style={[styles.subjectIcon, { backgroundColor: subjectTint(s.color) }]}>
+                  <Icon name={subjectIconName(s.icon)} size={20} color={subjectColor(s.color)} />
                 </View>
-                <Text style={styles.dayLabel}>{weeks[i]}</Text>
-                <Text style={styles.valLabel}>{val}m</Text>
+                <View style={styles.subjectInfo}>
+                  <Text style={styles.subjectName}>{s.name}</Text>
+                  <Text style={styles.subjectMeta}>
+                    {s.chapters_count} {s.chapters_count === 1 ? 'chapter' : 'chapters'}
+                  </Text>
+                </View>
               </View>
-            ))}
-          </View>
-        </View>
-
-        {/* Subject progress */}
-        <Text style={styles.sectionTitle}>Subject Progress</Text>
-        {subjectProgress.map((s, i) => (
-          <View key={i} style={styles.progressRow}>
-            <View style={styles.subjectLeft}>
-              <Text style={{ fontSize: 22 }}>{s.emoji}</Text>
-              <Text style={styles.subjectName}>{s.name}</Text>
-            </View>
-            <View style={styles.progressRight}>
-              <ProgressBar value={s.progress} variant={s.variant} height={6} style={{ flex: 1 }} />
-              <Text style={[styles.progressPct, {
-                color: s.variant === 'warning' ? Colors.warning
-                     : s.variant === 'success' ? Colors.success
-                     : s.variant === 'teal'    ? '#0E7490'
-                     : Colors.primary
-              }]}>
-                {s.progress}%
-              </Text>
-            </View>
-          </View>
-        ))}
-
-        {/* Recent activity */}
-        <Text style={styles.sectionTitle}>Recent Activity</Text>
-        {[
-          { icon: '⚗️', title: 'Completed Organic Chemistry Quiz', sub: 'Score: 80% · 2 hours ago', color: Colors.successLight },
-          { icon: '📐', title: 'Watched Calculus Video', sub: 'Chapter 3 · Yesterday', color: Colors.primaryLight },
-          { icon: '🤖', title: 'AI Session — 12 doubts solved', sub: '3 days ago', color: '#FDF4FF' },
-        ].map((a, i) => (
-          <View key={i} style={[styles.activityCard, { backgroundColor: a.color }]}>
-            <Text style={{ fontSize: 22 }}>{a.icon}</Text>
-            <View style={styles.activityInfo}>
-              <Text style={styles.activityTitle}>{a.title}</Text>
-              <Text style={styles.activitySub}>{a.sub}</Text>
-            </View>
-          </View>
-        ))}
-      </ScrollView>
+            ))
+          )}
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 };
@@ -117,48 +116,41 @@ export const ProgressScreen: React.FC<{ navigation: any }> = ({ navigation }) =>
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12,
-    borderBottomWidth: 1, borderBottomColor: Colors.border2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border2,
   },
   heading: { fontSize: 20, fontWeight: '800', color: Colors.text },
-  periodSwitch: {
+  scroll: { padding: 16, gap: 14, paddingBottom: 32 },
+  statsRow: { flexDirection: 'row', gap: 8 },
+  noStats: {
+    backgroundColor: Colors.white,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.border2,
+    padding: 18,
+    alignItems: 'center',
+  },
+  noStatsText: { fontSize: 12, color: Colors.text3 },
+  sectionTitle: { fontSize: 15, fontWeight: '700', color: Colors.text, marginTop: 4 },
+  subjectRow: {
     flexDirection: 'row',
-    backgroundColor: Colors.bg2, borderRadius: Radius.full, padding: 2,
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: Colors.white,
+    borderRadius: Radius.md,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: Colors.border2,
+    ...Shadow.sm,
   },
-  periodBtn:        { paddingHorizontal: 14, paddingVertical: 6, borderRadius: Radius.full },
-  periodActive:     { backgroundColor: Colors.white, ...Shadow.sm },
-  periodText:       { fontSize: 12, fontWeight: '600', color: Colors.text2 },
-  periodTextActive: { color: Colors.brand, fontWeight: '700' },
-  scroll:           { padding: 16, gap: 14, paddingBottom: 32 },
-  statsRow:         { flexDirection: 'row', gap: 8 },
-  chartCard: {
-    backgroundColor: Colors.white, borderRadius: Radius.lg, padding: 14,
-    borderWidth: 1, borderColor: Colors.border2, ...Shadow.sm,
-  },
-  chartTitle: { fontSize: 13, fontWeight: '700', color: Colors.text, marginBottom: 16 },
-  chart:      { flexDirection: 'row', gap: 4, height: 120, alignItems: 'flex-end' },
-  barWrap:    { flex: 1, alignItems: 'center', gap: 4 },
-  barTrack:   { flex: 1, width: '100%', backgroundColor: Colors.bg2, borderRadius: 4, overflow: 'hidden', justifyContent: 'flex-end' },
-  bar:        { width: '100%', backgroundColor: Colors.primaryLight, borderRadius: 4, minHeight: 4 },
-  dayLabel:   { fontSize: 9, color: Colors.text3, fontWeight: '500' },
-  valLabel:   { fontSize: 8, color: Colors.text3 },
-  sectionTitle: { fontSize: 15, fontWeight: '700', color: Colors.text },
-  progressRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: Colors.white, borderRadius: Radius.md, padding: 12,
-    borderWidth: 1, borderColor: Colors.border2, ...Shadow.sm,
-  },
-  subjectLeft:  { flexDirection: 'row', alignItems: 'center', gap: 8, width: 100 },
-  subjectName:  { fontSize: 12, fontWeight: '600', color: Colors.text },
-  progressRight:{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  progressPct:  { fontSize: 12, fontWeight: '700', width: 32, textAlign: 'right' },
-  activityCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    borderRadius: Radius.md, padding: 12,
-    borderWidth: 1, borderColor: Colors.border2,
-  },
-  activityInfo:  { flex: 1 },
-  activityTitle: { fontSize: 12, fontWeight: '700', color: Colors.text },
-  activitySub:   { fontSize: 11, color: Colors.text2, marginTop: 2 },
+  subjectIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  subjectInfo: { flex: 1 },
+  subjectName: { fontSize: 13, fontWeight: '700', color: Colors.text },
+  subjectMeta: { fontSize: 11, color: Colors.text2, marginTop: 2 },
 });

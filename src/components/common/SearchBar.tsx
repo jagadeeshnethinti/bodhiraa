@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, ViewStyle } from 'react-native';
+import { View, TextInput, StyleSheet, ViewStyle } from 'react-native';
 import { Colors, Radius } from '../../theme';
+import { Icon } from './Icon';
 
 interface SearchBarProps {
   placeholder?: string;
@@ -18,7 +19,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   const [focused, setFocused] = useState(false);
   return (
     <View style={[styles.bar, focused && styles.focused, style]}>
-      <Text style={styles.icon}>🔍</Text>
+      <Icon name="search" size={17} color={Colors.text3} />
       <TextInput
         style={styles.input}
         placeholder={placeholder}
@@ -48,7 +49,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     borderColor: 'rgba(196,149,96,0.35)',
   },
-  icon: { fontSize: 16 },
   input: {
     flex: 1,
     fontSize: 13.5,

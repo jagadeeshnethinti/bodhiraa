@@ -1,93 +1,30 @@
-// ── User Roles
-export type UserRole = 'student' | 'teacher' | 'parent' | 'admin' | 'superadmin';
+/**
+ * Navigation param lists. Data models for the API live in `src/api/types.ts`;
+ * screens consume those directly. Route params carry only what the destination
+ * needs to fetch (ids + a little display context for instant headers).
+ */
+import type { ApiAttemptResult } from '../api/types';
 
-// ── Auth
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-  phone?: string;
-  role: UserRole;
-  avatar?: string;
-  school?: string;
-  grade?: string;
-}
-
-// ── Learning
-export interface Subject {
-  id: string;
-  name: string;
-  icon: string;
-  chaptersCount: number;
-  lessonsCount: number;
-  progress: number; // 0-100
-  color: string;
-  lightColor: string;
-}
-
-export interface Chapter {
-  id: string;
-  subjectId: string;
-  number: number;
-  title: string;
-  lessonsCount: number;
-  status: 'completed' | 'in_progress' | 'locked';
-  progress?: number;
-}
-
-export interface Lesson {
-  id: string;
-  chapterId: string;
-  title: string;
-  type: 'video' | 'pdf' | 'quiz' | 'discussion';
-  duration?: string;
-  completed: boolean;
-}
-
-// ── Quiz
-export interface QuizQuestion {
-  id: string;
-  question: string;
-  options: string[];
-  correctIndex: number;
-  explanation?: string;
-}
-
-export interface QuizResult {
-  totalQuestions: number;
-  correct: number;
-  incorrect: number;
-  skipped: number;
-  timeTaken: string;
-  score: number;
-}
-
-// ── Progress
-export interface DailyProgress {
-  date: string;
-  minutesStudied: number;
-  lessonsCompleted: number;
-}
-
-// ── Navigation Types
-export type RootStackParamList = {
+// ── Root (role-gated) ─────────────────────────────────────────────────────────
+export type AppStackParamList = {
   Auth: undefined;
   Student: undefined;
   Teacher: undefined;
   Parent: undefined;
   Admin: undefined;
-  SuperAdmin: undefined;
 };
 
+// ── Auth flow ─────────────────────────────────────────────────────────────────
 export type AuthStackParamList = {
-  Splash: undefined;
   Onboarding: undefined;
   Login: undefined;
   SignUp: undefined;
-  OTP: { phone: string; email: string };
-  RoleSelection: undefined;
+  PhoneLogin: undefined;
+  /** `devOtp` is only set in local env where the backend echoes the code. */
+  OTP: { phone: string; devOtp?: string };
 };
 
+// ── Student ───────────────────────────────────────────────────────────────────
 export type StudentTabParamList = {
   Home: undefined;
   Courses: undefined;
@@ -97,45 +34,45 @@ export type StudentTabParamList = {
 };
 
 export type StudentStackParamList = {
-  StudentTabs: undefined;
+  StudentTabs: { screen?: keyof StudentTabParamList } | undefined;
   SubjectList: undefined;
-  ChapterList: { subject: Subject };
-  Lesson: { lesson: Lesson };
-  VideoPlayer: { videoIndex?: number; title?: string };
-  PDFNotes: { lesson: Lesson };
-  Discussion: { chapterId: string };
-  AIDoubt: undefined;
-  AISearch: undefined;
-  AIRecommend: undefined;
-  QuizActive: { subjectId?: string };
-  QuizResult: { result: QuizResult };
-  Assignment: undefined;
-  Achievements: undefined;
-  WeakAreas: undefined;
+  ChapterList: {
+    subjectId: number;
+    subjectName: string;
+    icon?: string | null;
+    color?: string | null;
+  };
+  ChapterLessons: { chapterId: number; chapterTitle: string; subjectName?: string };
+  LessonDetail: { lessonId: number; title?: string };
+  LessonVideo: {
+    lessonId: number;
+    url: string;
+    title?: string;
+    subjectName?: string;
+    durationSec?: number | null;
+  };
+  QuizList: undefined;
+  QuizDetail: { quizId: number; title?: string };
+  QuizActive: { attemptId: number; quizId: number; title?: string; durationMin?: number | null };
+  QuizResult: { result: ApiAttemptResult; quizTitle?: string };
+  LiveClasses: undefined;
+  LiveClassDetail: { liveId: number; title?: string };
   Notifications: undefined;
-  RecentlyViewed: undefined;
 };
 
+// ── Teacher / Parent / Admin (screens wired in a later pass) ────────────────────
 export type TeacherTabParamList = {
   Dashboard: undefined;
   Students: undefined;
   Content: undefined;
   Reports: undefined;
-  Profile: undefined;
+  TeacherProfile: undefined;
 };
 
 export type ParentTabParamList = {
-  Dashboard: undefined;
-  Child: undefined;
-  Attendance: undefined;
-  Reports: undefined;
-  Profile: undefined;
-};
-
-export type AdminTabParamList = {
-  Dashboard: undefined;
-  Users: undefined;
-  Classes: undefined;
-  Analytics: undefined;
-  Reports: undefined;
+  PHome: undefined;
+  PChild: undefined;
+  PAttendance: undefined;
+  PReports: undefined;
+  PProfile: undefined;
 };

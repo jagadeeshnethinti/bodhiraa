@@ -6,13 +6,14 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../types';
 import { Colors, Radius } from '../../theme';
 import { Button } from '../../components/common/Button';
+import { Icon, IconName } from '../../components/common/Icon';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Onboarding'>;
 
-const features = [
-  { icon: '🤖', title: 'AI Doubt Solver',   desc: 'Answers any doubt in seconds' },
-  { icon: '📊', title: 'Smart Analytics',   desc: 'Track every detail of progress' },
-  { icon: '🏆', title: 'Gamified Learning', desc: 'Earn badges, streaks & rewards' },
+const features: { icon: IconName; title: string; desc: string }[] = [
+  { icon: 'robot',  title: 'AI Doubt Solver',   desc: 'Answers any doubt in seconds' },
+  { icon: 'chart',  title: 'Smart Analytics',   desc: 'Track every detail of progress' },
+  { icon: 'trophy', title: 'Gamified Learning', desc: 'Earn badges, streaks & rewards' },
 ];
 
 export const OnboardingScreen: React.FC<Props> = ({ navigation }) => (
@@ -33,7 +34,7 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => (
         {/* Logo mark */}
         <View style={styles.logoRow}>
           <View style={styles.logoBox}>
-            <Text style={{ fontSize: 26 }}>🧠</Text>
+            <Icon name="brain" size={26} color={Colors.primary} />
           </View>
           <View>
             <Text style={styles.appName}>Bodhira LMS</Text>
@@ -44,7 +45,7 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => (
         {/* Headline */}
         <View style={styles.headBlock}>
           <Text style={styles.overline}>WELCOME TO BODHIRA</Text>
-          <Text style={styles.headline}>{'Learn smarter\nwith AI by\nyour side 🚀'}</Text>
+          <Text style={styles.headline}>{'Learn smarter\nwith AI by\nyour side'}</Text>
           <Text style={styles.body}>
             India's most advanced AI-powered LMS. Personalised paths, instant doubt solving,
             real-time analytics.
@@ -55,7 +56,7 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => (
         <View style={styles.features}>
           {features.map((f, i) => (
             <View key={i} style={styles.featureCard}>
-              <Text style={styles.featureIcon}>{f.icon}</Text>
+              <Icon name={f.icon} size={24} color={Colors.primary} />
               <View style={styles.featureText}>
                 <Text style={styles.featureTitle}>{f.title}</Text>
                 <Text style={styles.featureDesc}>{f.desc}</Text>
@@ -125,7 +126,6 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: 'rgba(196,149,96,0.22)',
     borderRadius: Radius.lg, padding: 14,
   },
-  featureIcon: { fontSize: 24 },
   featureText: { flex: 1, gap: 2 },
   featureTitle: { fontSize: 13, fontWeight: '700', color: '#F5E8D0' },
   featureDesc:  { fontSize: 11, color: 'rgba(245,232,208,0.65)' },

@@ -1,151 +1,165 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  StatusBar,
+  RefreshControl,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { StudentStackParamList } from '../../types';
 import { Colors, Radius, Shadow } from '../../theme';
-import { ProgressBar } from '../../components/common/ProgressBar';
-import { Chip } from '../../components/common/Chip';
+import { LoadingState, ErrorState, EmptyState } from '../../components/common/ScreenStates';
+import { Icon } from '../../components/common/Icon';
+import { useApi } from '../../hooks/useApi';
+import { StudentApi } from '../../api';
+import { subjectIconName, subjectTint, subjectColor } from '../../utils/ui';
 
-type ChapterStatus = 'completed' | 'in_progress' | 'locked';
+type Props = NativeStackScreenProps<StudentStackParamList, 'ChapterList'>;
 
-const CHAPTERS = [
-  { num: 1, title: 'Basic Concepts',        lessons: 4, status: 'completed'   as ChapterStatus },
-  { num: 2, title: 'Hydrocarbons',           lessons: 5, status: 'completed'   as ChapterStatus },
-  { num: 3, title: 'Alcohols & Phenols',     lessons: 4, status: 'completed'   as ChapterStatus },
-  { num: 4, title: 'Aldehydes & Ketones',    lessons: 5, status: 'completed'   as ChapterStatus },
-  { num: 5, title: 'Reactions & Mechanisms', lessons: 6, status: 'in_progress' as ChapterStatus, done: 4 },
-  { num: 6, title: 'Functional Groups',      lessons: 5, status: 'locked'      as ChapterStatus },
-  { num: 7, title: 'Aromatic Compounds',     lessons: 6, status: 'locked'      as ChapterStatus },
-];
-
-const ChapterRow: React.FC<{
-  num: number; title: string; lessons: number;
-  status: ChapterStatus; done?: number; onPress?: () => void;
-}> = ({ num, title, lessons, status, done, onPress }) => {
-  const isLocked = status === 'locked';
-  const isCurrent = status === 'in_progress';
-  const isDone = status === 'completed';
-
-  return (
-    <TouchableOpacity
-      style={[styles.chRow, isCurrent && styles.chRowCurrent, isLocked && styles.chRowLocked]}
-      onPress={onPress}
-      disabled={isLocked}
-      activeOpacity={isLocked ? 1 : 0.85}
-    >
-      <View style={[styles.chBullet,
-        isDone    && { backgroundColor: Colors.success },
-        isCurrent && { backgroundColor: Colors.primary },
-        isLocked  && { backgroundColor: Colors.border },
-      ]}>
-        {isDone    && <Text style={styles.chBulletTxt}>✓</Text>}
-        {isCurrent && <Text style={styles.chBulletTxt}>▶</Text>}
-        {isLocked  && <Text style={[styles.chBulletTxt, { color: Colors.text3 }]}>{num}</Text>}
-      </View>
-      <View style={styles.chInfo}>
-        <Text style={[styles.chTitle, isCurrent && { color: Colors.primary }]}>
-          Ch {num} · {title}
-        </Text>
-        <Text style={styles.chSub}>
-          {done != null ? `${done}/${lessons}` : `${lessons}`} lessons ·{' '}
-          {isDone ? 'Completed' : isCurrent ? 'In Progress' : 'Locked'}
-        </Text>
-      </View>
-      {isCurrent ? <Chip label="RESUME" variant="primary" small />
-       : isLocked ? <Text style={{ fontSize: 14 }}>🔒</Text>
-       : <Text style={styles.chevron}>›</Text>}
-    </TouchableOpacity>
+export const ChapterListScreen: React.FC<Props> = ({ navigation, route }) => {
+  const { subjectId, subjectName, icon, color } = route.params;
+  const { data, loading, error, refetch, refreshing } = useApi(
+    signal => StudentApi.subject(subjectId, signal),
+    [subjectId],
   );
-};
 
-export const ChapterListScreen: React.FC<{ navigation: any; route: any }> = ({ navigation, route }) => {
-  const subject = route.params?.subject ?? { emoji: '⚗️', name: 'Organic Chemistry', chapters: 12, lessons: 48, progress: 62 };
+  const chapters = data?.chapters ?? [];
+  const heroColor = color ?? data?.subject?.color ?? null;
+  const heroIcon = subjectIconName(icon ?? data?.subject?.icon);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
 
-      {/* Topbar */}
       <View style={styles.topbar}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Text style={styles.backIcon}>‹</Text>
         </TouchableOpacity>
-        <Text style={styles.topTitle} numberOfLines={1}>{subject.name ?? 'Chemistry'}</Text>
-        <TouchableOpacity style={styles.moreBtn}>
-          <Text style={styles.moreIcon}>⋯</Text>
-        </TouchableOpacity>
+        <Text style={styles.topTitle} numberOfLines={1}>
+          {subjectName}
+        </Text>
+        <View style={{ width: 36 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* Subject card */}
-        <View style={[styles.subjectCard, { backgroundColor: '#FEF3C7' }]}>
-          <Text style={styles.emoji}>{subject.emoji ?? '⚗️'}</Text>
-          <View style={styles.subjectInfo}>
-            <Text style={styles.subjectName}>{subject.name ?? 'Organic Chemistry'}</Text>
-            <Text style={styles.subjectMeta}>{subject.chapters ?? 12} chapters · {subject.lessons ?? 48} lessons · 3h 20m</Text>
-            <View style={styles.progressRow}>
-              <ProgressBar value={subject.progress ?? 62} variant="warning" height={5} style={{ flex: 1 }} />
-              <Text style={styles.progressPct}>{subject.progress ?? 62}%</Text>
+      {loading && !data ? (
+        <LoadingState />
+      ) : error && !data ? (
+        <ErrorState message={error} onRetry={refetch} />
+      ) : (
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={Colors.primary} />}
+        >
+          {/* Subject hero */}
+          <View style={[styles.subjectCard, { backgroundColor: subjectTint(heroColor) }]}>
+            <Icon name={heroIcon} size={40} color={subjectColor(heroColor)} />
+            <View style={styles.subjectInfo}>
+              <Text style={styles.subjectName}>{data?.subject?.name ?? subjectName}</Text>
+              <Text style={styles.subjectMeta}>
+                {chapters.length} {chapters.length === 1 ? 'chapter' : 'chapters'}
+                {data?.subject?.grade ? ` · Grade ${data.subject.grade}` : ''}
+              </Text>
             </View>
           </View>
-        </View>
 
-        {/* Chapters */}
-        {CHAPTERS.map((ch, i) => (
-          <ChapterRow
-            key={i}
-            num={ch.num}
-            title={ch.title}
-            lessons={ch.lessons}
-            status={ch.status}
-            done={ch.done}
-            onPress={() => {
-              if (ch.status !== 'locked') {
-                navigation.navigate('Lesson', {
-                  lesson: { id: String(ch.num), title: ch.title, type: 'video', completed: ch.status === 'completed' },
-                });
-              }
-            }}
-          />
-        ))}
-      </ScrollView>
+          {chapters.length === 0 ? (
+            <EmptyState icon="book" title="No chapters yet" sub="Content for this subject is on the way." />
+          ) : (
+            chapters.map((ch, i) => (
+              <TouchableOpacity
+                key={ch.id}
+                style={styles.chRow}
+                activeOpacity={0.85}
+                onPress={() =>
+                  navigation.navigate('ChapterLessons', {
+                    chapterId: ch.id,
+                    chapterTitle: ch.title,
+                    subjectName: data?.subject?.name ?? subjectName,
+                  })
+                }
+              >
+                <View style={styles.chBullet}>
+                  <Text style={styles.chBulletTxt}>{ch.sort_order ?? i + 1}</Text>
+                </View>
+                <View style={styles.chInfo}>
+                  <Text style={styles.chTitle}>{ch.title}</Text>
+                  {ch.lessons_count != null && (
+                    <Text style={styles.chSub}>
+                      {ch.lessons_count} {ch.lessons_count === 1 ? 'lesson' : 'lessons'}
+                    </Text>
+                  )}
+                </View>
+                <Text style={styles.chevron}>›</Text>
+              </TouchableOpacity>
+            ))
+          )}
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  safe:   { flex: 1, backgroundColor: Colors.bg },
+  safe: { flex: 1, backgroundColor: Colors.bg },
   topbar: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12,
-    borderBottomWidth: 1, borderBottomColor: Colors.border2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border2,
   },
-  backBtn:   { width: 36, height: 36, borderRadius: 10, backgroundColor: Colors.bg2, alignItems: 'center', justifyContent: 'center' },
-  backIcon:  { fontSize: 26, color: Colors.text },
-  topTitle:  { flex: 1, fontSize: 17, fontWeight: '800', color: Colors.text, textAlign: 'center', marginHorizontal: 8 },
-  moreBtn:   { width: 36, height: 36, borderRadius: 10, backgroundColor: Colors.bg2, alignItems: 'center', justifyContent: 'center' },
-  moreIcon:  { fontSize: 18, color: Colors.text, letterSpacing: 2 },
-  scroll:    { padding: 16, gap: 8, paddingBottom: 24 },
-  subjectCard: { borderRadius: Radius.lg, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 4 },
-  emoji:       { fontSize: 40 },
+  backBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: Colors.bg2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backIcon: { fontSize: 26, color: Colors.text },
+  topTitle: { flex: 1, fontSize: 17, fontWeight: '800', color: Colors.text, textAlign: 'center', marginHorizontal: 8 },
+  scroll: { padding: 16, gap: 8, paddingBottom: 24 },
+  subjectCard: {
+    borderRadius: Radius.lg,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    marginBottom: 6,
+  },
   subjectInfo: { flex: 1 },
   subjectName: { fontSize: 15, fontWeight: '800', color: Colors.text },
-  subjectMeta: { fontSize: 11, color: Colors.text2, marginTop: 3, marginBottom: 8 },
-  progressRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  progressPct: { fontSize: 11, fontWeight: '700', color: Colors.warning },
+  subjectMeta: { fontSize: 11, color: Colors.text2, marginTop: 3 },
   chRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: Colors.white, borderRadius: Radius.md,
-    borderWidth: 1, borderColor: Colors.border2, padding: 14, ...Shadow.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: Colors.white,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.border2,
+    padding: 14,
+    ...Shadow.sm,
   },
-  chRowCurrent: { backgroundColor: Colors.primaryLight, borderColor: Colors.primary, borderWidth: 2 },
-  chRowLocked:  { opacity: 0.6 },
   chBullet: {
-    width: 34, height: 34, borderRadius: 17,
-    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: Colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
-  chBulletTxt: { color: Colors.white, fontWeight: '700', fontSize: 14 },
-  chInfo:    { flex: 1 },
-  chTitle:   { fontSize: 13, fontWeight: '700', color: Colors.text },
-  chSub:     { fontSize: 11, color: Colors.text2, marginTop: 2 },
-  chevron:   { fontSize: 22, color: Colors.text3 },
+  chBulletTxt: { color: Colors.primaryDark, fontWeight: '800', fontSize: 14 },
+  chInfo: { flex: 1 },
+  chTitle: { fontSize: 13, fontWeight: '700', color: Colors.text },
+  chSub: { fontSize: 11, color: Colors.text2, marginTop: 2 },
+  chevron: { fontSize: 22, color: Colors.text3 },
 });

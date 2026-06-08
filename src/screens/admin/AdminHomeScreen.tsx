@@ -4,8 +4,9 @@ import LinearGradient from 'react-native-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Radius, Shadow } from '../../theme';
 import { ProgressBar } from '../../components/common/ProgressBar';
+import { Icon, IconName } from '../../components/common/Icon';
 
-export const AdminHomeScreen: React.FC<{ navigation: any }> = ({ navigation }) => (
+export const AdminHomeScreen: React.FC = () => (
   <View style={styles.container}>
     <StatusBar barStyle="light-content" backgroundColor="#1A0A0C" />
 
@@ -31,14 +32,14 @@ export const AdminHomeScreen: React.FC<{ navigation: any }> = ({ navigation }) =
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Overview stats */}
         <View style={styles.statsGrid}>
-          {[
-            { icon: '🎓', label: 'Students', value: '1,248' },
-            { icon: '👨‍🏫', label: 'Teachers', value: '68' },
-            { icon: '📚', label: 'Classes',  value: '42' },
-            { icon: '📊', label: 'Avg Score', value: '74%' },
-          ].map((s, i) => (
+          {([
+            { icon: 'school',  label: 'Students', value: '1,248' },
+            { icon: 'teacher', label: 'Teachers', value: '68' },
+            { icon: 'library', label: 'Classes',  value: '42' },
+            { icon: 'chart',   label: 'Avg Score', value: '74%' },
+          ] as { icon: IconName; label: string; value: string }[]).map((s, i) => (
             <View key={i} style={styles.statCard}>
-              <Text style={{ fontSize: 24 }}>{s.icon}</Text>
+              <Icon name={s.icon} size={24} color={Colors.primary} />
               <Text style={styles.statVal}>{s.value}</Text>
               <Text style={styles.statLbl}>{s.label}</Text>
             </View>
@@ -47,7 +48,7 @@ export const AdminHomeScreen: React.FC<{ navigation: any }> = ({ navigation }) =
 
         {/* Alerts */}
         <View style={styles.alertCard}>
-          <Text style={{ fontSize: 16 }}>🔔</Text>
+          <Icon name="bell" size={16} color={Colors.primary} />
           <View style={styles.alertInfo}>
             <Text style={styles.alertTitle}>3 new teacher registrations pending</Text>
             <Text style={styles.alertSub}>Approval required</Text>
@@ -60,16 +61,16 @@ export const AdminHomeScreen: React.FC<{ navigation: any }> = ({ navigation }) =
         {/* Quick Actions */}
         <Text style={styles.sectionTitle}>Management</Text>
         <View style={styles.actionsGrid}>
-          {[
-            { icon: '👤',  label: 'Add Student' },
-            { icon: '👨‍🏫', label: 'Add Teacher' },
-            { icon: '🏫',  label: 'Classes' },
-            { icon: '📊',  label: 'Analytics' },
-            { icon: '📢',  label: 'Announce' },
-            { icon: '📋',  label: 'Reports' },
-          ].map((a, i) => (
+          {([
+            { icon: 'user',      label: 'Add Student' },
+            { icon: 'teacher',   label: 'Add Teacher' },
+            { icon: 'school',    label: 'Classes' },
+            { icon: 'chart',     label: 'Analytics' },
+            { icon: 'megaphone', label: 'Announce' },
+            { icon: 'clipboard', label: 'Reports' },
+          ] as { icon: IconName; label: string }[]).map((a, i) => (
             <TouchableOpacity key={i} style={styles.actionTile}>
-              <Text style={{ fontSize: 28 }}>{a.icon}</Text>
+              <Icon name={a.icon} size={28} color={Colors.primary} />
               <Text style={styles.actionLabel}>{a.label}</Text>
             </TouchableOpacity>
           ))}
