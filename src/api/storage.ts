@@ -85,4 +85,21 @@ export const Storage = {
       /* best-effort */
     }
   },
+
+  /** Generic string get/set for small preferences (language, flags, …). */
+  async getItem(key: string): Promise<string | null> {
+    try {
+      return await store.getItem(key);
+    } catch {
+      return null;
+    }
+  },
+
+  async setItem(key: string, value: string): Promise<void> {
+    try {
+      await store.setItem(key, value);
+    } catch {
+      /* best-effort */
+    }
+  },
 };

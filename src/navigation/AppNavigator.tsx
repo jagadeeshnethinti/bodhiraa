@@ -7,7 +7,7 @@ import { AuthNavigator } from './AuthNavigator';
 import { StudentNavigator } from './StudentNavigator';
 import { TeacherNavigator } from './TeacherNavigator';
 import { ParentNavigator } from './ParentNavigator';
-import { WebOnlyScreen } from '../screens/misc/WebOnlyScreen';
+import { AdminNavigator } from './AdminNavigator';
 
 /**
  * Root navigator. There is no shared dashboard — the visible stack is chosen by
@@ -33,8 +33,8 @@ export const AppNavigator: React.FC = () => {
       ) : role === 'parent' ? (
         <ParentNavigator />
       ) : (
-        // admin / super_admin → web only on mobile v1 (per webapp-flows §1, §9).
-        <WebOnlyScreen />
+        // admin / super_admin → native dashboard (mobile UI design build).
+        <AdminNavigator />
       )}
     </NavigationContainer>
   );

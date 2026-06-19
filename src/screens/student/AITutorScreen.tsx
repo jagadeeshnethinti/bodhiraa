@@ -2,14 +2,16 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, StatusBar, Modal, ActivityIndicator, Platform } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors, Radius } from '../../theme';
+import { Colors, Radius, useTheme } from '../../theme';
 import { Icon } from '../../components/common/Icon';
+import { AIMark } from '../../components/common/AIMark';
 import { useKeyboard } from '../../hooks/useKeyboard';
 import { StudentApi, ApiError, type ApiAiMessage, type ApiAiSessionSummary } from '../../api';
 import { useAuth } from '../../context/AuthContext';
 
 export const AITutorScreen: React.FC<{ navigation: any }> = () => {
   const { user } = useAuth();
+  const theme = useTheme();
   const insets = useSafeAreaInsets();
   const keyboard = useKeyboard();
   // iOS: lift the composer by the keyboard height (no KeyboardAvoidingView).
@@ -130,15 +132,13 @@ export const AITutorScreen: React.FC<{ navigation: any }> = () => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1A0A0C" />
+      <StatusBar barStyle="light-content" backgroundColor={theme.heroSolid} />
 
-      <LinearGradient colors={['#1A0A0C', '#2A0E13', '#3D1520']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+      <LinearGradient colors={theme.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
         <SafeAreaView edges={['top']}>
           <View style={styles.topbar}>
             <View style={styles.aiInfo}>
-              <View style={styles.aiAvatar}>
-                <Icon name="robot" size={18} color={Colors.primary} />
-              </View>
+              <AIMark size={40} glow />
               <View>
                 <Text style={styles.aiName}>Bodhira AI</Text>
                 <Text style={styles.aiStatus}>● Online · Doubt Solver</Text>
@@ -169,9 +169,7 @@ export const AITutorScreen: React.FC<{ navigation: any }> = () => {
         ) : (
           <>
             <View style={styles.aiGreeting}>
-              <View style={styles.aiGreetAvatar}>
-                <Icon name="robot" size={22} color={Colors.primary} />
-              </View>
+              <AIMark size={36} />
               <View style={styles.aiBubble}>
                 <Text style={styles.aiBubbleText}>
                   Hi {user?.name?.split(' ')[0] ?? 'there'}! I'm your AI tutor. Ask me any doubt — Chemistry,
@@ -192,11 +190,7 @@ export const AITutorScreen: React.FC<{ navigation: any }> = () => {
 
             {messages.map(m => (
               <View key={m.id} style={[styles.messageRow, m.role === 'user' ? styles.messageRowUser : styles.messageRowAI]}>
-                {m.role === 'assistant' && (
-                  <View style={styles.aiMsgAvatar}>
-                    <Icon name="robot" size={14} color={Colors.primary} />
-                  </View>
-                )}
+                {m.role === 'assistant' && <AIMark size={28} style={styles.aiMsgAvatar} />}
                 <View style={[styles.messageBubble, m.role === 'user' ? styles.userBubble : styles.aiBubbleMsg]}>
                   <Text style={[styles.messageText, { color: m.role === 'user' ? '#F5E8D0' : Colors.text }]}>{m.content}</Text>
                 </View>
@@ -205,9 +199,7 @@ export const AITutorScreen: React.FC<{ navigation: any }> = () => {
 
             {sending && (
               <View style={styles.messageRowAI}>
-                <View style={styles.aiMsgAvatar}>
-                  <Icon name="robot" size={14} color={Colors.primary} />
-                </View>
+                <AIMark size={28} style={styles.aiMsgAvatar} />
                 <View style={[styles.messageBubble, styles.aiBubbleMsg, styles.typingBubble]}>
                   <Text style={styles.typingDots}>● ● ●</Text>
                 </View>
@@ -277,7 +269,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   topbar: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 12 },
   aiInfo: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  aiAvatar: { width: 38, height: 38, borderRadius: 12, backgroundColor: 'rgba(196,149,96,0.2)', alignItems: 'center', justifyContent: 'center' },
   aiName: { fontSize: 15, fontWeight: '800', color: '#F5E8D0' },
   aiStatus: { fontSize: 10, color: 'rgba(196,149,96,0.75)', marginTop: 1 },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -287,7 +278,6 @@ const styles = StyleSheet.create({
   messagesList: { flex: 1 },
   messages: { padding: 16, gap: 12, paddingBottom: 8 },
   aiGreeting: { flexDirection: 'row', gap: 10, alignItems: 'flex-end' },
-  aiGreetAvatar: { width: 34, height: 34, borderRadius: 10, backgroundColor: Colors.primaryLight, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   aiBubble: { flex: 1, backgroundColor: Colors.primaryLight, borderRadius: 18, borderBottomLeftRadius: 4, padding: 12, borderWidth: 1, borderColor: 'rgba(196,149,96,0.2)' },
   aiBubbleText: { fontSize: 12, color: Colors.text, lineHeight: 18 },
   suggestions: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingVertical: 4 },
@@ -296,7 +286,7 @@ const styles = StyleSheet.create({
   messageRow: { flexDirection: 'row', gap: 8, alignItems: 'flex-end' },
   messageRowUser: { justifyContent: 'flex-end' },
   messageRowAI: { justifyContent: 'flex-start' },
-  aiMsgAvatar: { width: 28, height: 28, borderRadius: 8, backgroundColor: Colors.primaryLight, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  aiMsgAvatar: { flexShrink: 0 },
   messageBubble: { maxWidth: '80%', padding: 10, borderRadius: 18 },
   userBubble: { backgroundColor: Colors.brand, borderBottomRightRadius: 4 },
   aiBubbleMsg: { backgroundColor: Colors.white, borderBottomLeftRadius: 4, borderWidth: 1, borderColor: Colors.border2 },

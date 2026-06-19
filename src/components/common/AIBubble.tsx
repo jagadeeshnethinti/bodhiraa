@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { Colors, Radius } from '../../theme';
 import { Icon } from './Icon';
+import { Entrance, Pulse, PressableScale } from './anim';
 
 interface AIBubbleProps {
   title?: string;
@@ -10,9 +11,11 @@ interface AIBubbleProps {
 }
 
 export const AIBubble: React.FC<AIBubbleProps> = ({ title, message, actions }) => (
-  <View style={styles.card}>
+  <Entrance style={styles.card}>
     <View style={styles.row}>
-      <Icon name="robot" size={20} color={Colors.primary} />
+      <Pulse>
+        <Icon name="robot" size={20} color={Colors.primary} />
+      </Pulse>
       <View style={styles.content}>
         {title && <Text style={styles.title}>{title}</Text>}
         <Text style={styles.message}>{message}</Text>
@@ -21,7 +24,7 @@ export const AIBubble: React.FC<AIBubbleProps> = ({ title, message, actions }) =
     {actions && actions.length > 0 && (
       <View style={styles.actions}>
         {actions.map((a, i) => (
-          <TouchableOpacity
+          <PressableScale
             key={i}
             onPress={a.onPress}
             style={[
@@ -37,11 +40,11 @@ export const AIBubble: React.FC<AIBubbleProps> = ({ title, message, actions }) =
             >
               {a.label}
             </Text>
-          </TouchableOpacity>
+          </PressableScale>
         ))}
       </View>
     )}
-  </View>
+  </Entrance>
 );
 
 const styles = StyleSheet.create({

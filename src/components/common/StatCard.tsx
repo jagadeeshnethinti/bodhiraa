@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, ViewStyle } from 'react-native';
+import { Text, StyleSheet, ViewStyle } from 'react-native';
 import { Colors, Radius, Shadow } from '../../theme';
 import { Icon, IconName } from './Icon';
+import { Entrance, AnimatedCounter } from './anim';
 
 interface StatCardProps {
   icon: IconName;
@@ -10,6 +11,10 @@ interface StatCardProps {
   valueColor?: string;
   iconColor?: string;
   style?: ViewStyle;
+  /** Position in a row — drives the staggered entrance. */
+  index?: number;
+  /** Count the number up on mount (default true for numeric values). */
+  animate?: boolean;
 }
 
 export const StatCard: React.FC<StatCardProps> = ({
@@ -19,12 +24,18 @@ export const StatCard: React.FC<StatCardProps> = ({
   valueColor = Colors.text,
   iconColor,
   style,
+  index = 0,
+  animate = true,
 }) => (
-  <View style={[styles.cell, style]}>
+  <Entrance index={index} style={[styles.cell, style]}>
     <Icon name={icon} size={20} color={iconColor ?? valueColor} />
-    <Text style={[styles.value, { color: valueColor }]}>{value}</Text>
+    {animate ? (
+      <AnimatedCounter value={value} style={[styles.value, { color: valueColor }]} />
+    ) : (
+      <Text style={[styles.value, { color: valueColor }]}>{value}</Text>
+    )}
     <Text style={styles.label}>{label}</Text>
-  </View>
+  </Entrance>
 );
 
 const styles = StyleSheet.create({

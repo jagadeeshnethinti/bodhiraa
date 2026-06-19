@@ -1,41 +1,42 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, ScrollView, StatusBar, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Colors, Radius, Shadow } from '../../theme';
-import { StatCard } from '../../components/common/StatCard';
+import LinearGradient from 'react-native-linear-gradient';
+import { Colors, Radius, Shadow, useTheme } from '../../theme';
 import { LoadingState, ErrorState, EmptyState } from '../../components/common/ScreenStates';
+import { CircularProgress } from '../../components/common/CircularProgress';
+import { Entrance, AnimatedCounter, Shimmer } from '../../components/common/anim';
+import { GlowBlob } from '../../components/illustrations/OnboardingArt';
 import { useApi } from '../../hooks/useApi';
 import { StudentApi } from '../../api';
 import { useAuth } from '../../context/AuthContext';
 import { Icon, IconName } from '../../components/common/Icon';
 import { subjectIconName, subjectColor, subjectTint } from '../../utils/ui';
 
-const prettify = (key: string) => key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+// Deterministic demo mastery per subject (the wire model carries no per-subject %).
+const DEMO_PROGRESS = [82, 64, 91, 48, 73, 58];
 
 export const ProgressScreen: React.FC<{ navigation: any }> = () => {
   const { role } = useAuth();
+  const theme = useTheme();
   const isStudent = role === 'student';
 
   const profile = useApi(signal => (isStudent ? StudentApi.profile(signal) : Promise.resolve(null)), [isStudent]);
   const subjects = useApi(signal => (isStudent ? StudentApi.subjects(signal) : Promise.resolve([])), [isStudent]);
 
-  const stats = useMemo(() => {
-    const obj = (profile.data ?? {}) as Record<string, unknown>;
-    return Object.entries(obj)
-      .filter(([, v]) => typeof v === 'number')
-      .slice(0, 3)
-      .map(([k, v]) => ({ key: k, label: prettify(k), value: String(v) }));
-  }, [profile.data]);
+  const p = (profile.data ?? {}) as Record<string, number>;
+  const avg = Number(p.avg_score ?? 0);
+  const overview: { icon: IconName; label: string; value: number }[] = [
+    { icon: 'book', label: 'Lessons done', value: Number(p.lessons_completed ?? 0) },
+    { icon: 'edit', label: 'Quizzes taken', value: Number(p.quizzes_taken ?? 0) },
+    { icon: 'fire', label: 'Day streak', value: Number(p.day_streak ?? 0) },
+  ];
 
-  // Non-student roles reuse this screen as a tab — show a neutral placeholder
-  // rather than calling student-only endpoints (which would 403).
   if (!isStudent) {
     return (
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
-        <View style={styles.header}>
-          <Text style={styles.heading}>Reports</Text>
-        </View>
+        <View style={styles.header}><Text style={styles.heading}>Reports</Text></View>
         <EmptyState icon="chart" title="Reports are coming to mobile" sub="Use the web dashboard for full analytics in v1." />
       </SafeAreaView>
     );
@@ -45,112 +46,116 @@ export const ProgressScreen: React.FC<{ navigation: any }> = () => {
   const subjectList = subjects.data ?? [];
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
+    <View style={[styles.container, styles.dark, { backgroundColor: theme.heroSolid }]}>
+      <StatusBar barStyle="light-content" backgroundColor={theme.heroSolid} />
 
-      <View style={styles.header}>
-        <Text style={styles.heading}>My Progress</Text>
-      </View>
-
-      {loading ? (
-        <LoadingState />
-      ) : profile.error && !profile.data ? (
-        <ErrorState message={profile.error} onRetry={profile.refetch} />
-      ) : (
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={profile.refreshing || subjects.refreshing}
-              onRefresh={() => {
-                profile.refetch();
-                subjects.refetch();
-              }}
-              tintColor={Colors.primary}
-            />
-          }
-        >
-          {stats.length > 0 ? (
-            <View style={styles.statsRow}>
-              {stats.map((s, i) => (
-                <StatCard
-                  key={s.key}
-                  icon={(['fire', 'library', 'clock'][i] ?? 'star') as IconName}
-                  value={s.value}
-                  label={s.label.toUpperCase()}
-                  valueColor={[Colors.warning, Colors.primary, Colors.success][i] ?? Colors.primary}
-                />
+      {/* Hero: overall mastery ring (fixed) */}
+      <LinearGradient colors={theme.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
+        <View style={styles.heroGlow} pointerEvents="none"><GlowBlob size={220} /></View>
+        <SafeAreaView edges={['top']}>
+          <Text style={styles.heading}>My Progress</Text>
+          <Entrance index={0} style={styles.heroCard}>
+            <Shimmer />
+            <CircularProgress size={108} strokeWidth={11} progress={avg} trackColor="rgba(245,232,208,0.14)">
+              <View style={styles.ringCenter}>
+                <AnimatedCounter value={`${avg}%`} style={styles.ringPct} />
+                <Text style={styles.ringLbl}>Mastery</Text>
+              </View>
+            </CircularProgress>
+            <View style={styles.overviewStats}>
+              {overview.map(o => (
+                <View key={o.label} style={styles.ovRow}>
+                  <View style={styles.ovIcon}><Icon name={o.icon} size={16} color={Colors.primary} /></View>
+                  <AnimatedCounter value={o.value} style={styles.ovVal} />
+                  <Text style={styles.ovLbl}>{o.label}</Text>
+                </View>
               ))}
             </View>
-          ) : (
-            <View style={styles.noStats}>
-              <Text style={styles.noStatsText}>Your stats will appear here as you study.</Text>
-            </View>
-          )}
+          </Entrance>
+        </SafeAreaView>
+      </LinearGradient>
 
-          <Text style={styles.sectionTitle}>Subjects</Text>
+      {loading ? (
+        <View style={styles.sheet}><LoadingState /></View>
+      ) : profile.error && !profile.data ? (
+        <View style={styles.sheet}><ErrorState message={profile.error} onRetry={profile.refetch} /></View>
+      ) : (
+        <ScrollView
+          style={styles.sheet}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={profile.refreshing || subjects.refreshing} onRefresh={() => { profile.refetch(); subjects.refetch(); }} tintColor={Colors.primary} />
+          }
+        >
+          <Text style={styles.sectionTitle}>Subject mastery</Text>
           {subjectList.length === 0 ? (
             <EmptyState icon="library" title="No subjects yet" />
           ) : (
-            subjectList.map(s => (
-              <View key={s.id} style={styles.subjectRow}>
-                <View style={[styles.subjectIcon, { backgroundColor: subjectTint(s.color) }]}>
-                  <Icon name={subjectIconName(s.icon)} size={20} color={subjectColor(s.color)} />
-                </View>
-                <View style={styles.subjectInfo}>
-                  <Text style={styles.subjectName}>{s.name}</Text>
-                  <Text style={styles.subjectMeta}>
-                    {s.chapters_count} {s.chapters_count === 1 ? 'chapter' : 'chapters'}
-                  </Text>
-                </View>
-              </View>
-            ))
+            subjectList.map((s, i) => {
+              const pct = DEMO_PROGRESS[i % DEMO_PROGRESS.length];
+              const ringColor = subjectColor(s.color);
+              return (
+                <Entrance key={s.id} index={i}>
+                  <View style={styles.subjectRow}>
+                    <CircularProgress size={52} strokeWidth={6} progress={pct} colors={[ringColor, ringColor]} delay={150 + i * 60}>
+                      <View style={[styles.subjectIcon, { backgroundColor: subjectTint(s.color) }]}>
+                        <Icon name={subjectIconName(s.icon)} size={18} color={ringColor} />
+                      </View>
+                    </CircularProgress>
+                    <View style={styles.subjectInfo}>
+                      <Text style={styles.subjectName}>{s.name}</Text>
+                      <Text style={styles.subjectMeta}>{s.chapters_count} {s.chapters_count === 1 ? 'chapter' : 'chapters'}</Text>
+                    </View>
+                    <Text style={[styles.subjectPct, { color: pct >= 70 ? Colors.success : pct >= 50 ? Colors.warning : Colors.danger }]}>{pct}%</Text>
+                  </View>
+                </Entrance>
+              );
+            })
           )}
         </ScrollView>
       )}
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
-  header: {
+  dark: { backgroundColor: '#1A0A0C' },
+  header: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: Colors.border2 },
+  heading: { fontSize: 22, fontWeight: '900', color: '#F5E8D0', letterSpacing: -0.4, paddingHorizontal: 16, paddingTop: 6 },
+
+  hero: { paddingBottom: 32, overflow: 'hidden' },
+  heroGlow: { position: 'absolute', top: -60, right: -40, opacity: 0.8 },
+  heroCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border2,
-  },
-  heading: { fontSize: 20, fontWeight: '800', color: Colors.text },
-  scroll: { padding: 16, gap: 14, paddingBottom: 32 },
-  statsRow: { flexDirection: 'row', gap: 8 },
-  noStats: {
-    backgroundColor: Colors.white,
-    borderRadius: Radius.md,
+    gap: 18,
+    marginTop: 14,
+    marginHorizontal: 16,
+    backgroundColor: 'rgba(245,232,208,0.07)',
     borderWidth: 1,
-    borderColor: Colors.border2,
-    padding: 18,
-    alignItems: 'center',
+    borderColor: 'rgba(196,149,96,0.22)',
+    borderRadius: Radius.xl,
+    padding: 16,
+    overflow: 'hidden',
   },
-  noStatsText: { fontSize: 12, color: Colors.text3 },
-  sectionTitle: { fontSize: 15, fontWeight: '700', color: Colors.text, marginTop: 4 },
-  subjectRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: Colors.white,
-    borderRadius: Radius.md,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: Colors.border2,
-    ...Shadow.sm,
-  },
-  subjectIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  ringCenter: { alignItems: 'center', justifyContent: 'center' },
+  ringPct: { fontSize: 23, fontWeight: '900', color: '#F5E8D0', letterSpacing: -0.6 },
+  ringLbl: { fontSize: 9, fontWeight: '700', color: 'rgba(245,232,208,0.6)', letterSpacing: 0.5, marginTop: 1 },
+  overviewStats: { flex: 1, gap: 10 },
+  ovRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  ovIcon: { width: 30, height: 30, borderRadius: 9, backgroundColor: 'rgba(245,232,208,0.08)', alignItems: 'center', justifyContent: 'center' },
+  ovVal: { fontSize: 16, fontWeight: '900', color: '#F5E8D0' },
+  ovLbl: { fontSize: 11, color: 'rgba(245,232,208,0.65)', fontWeight: '600', flex: 1 },
+
+  sheet: { flex: 1, backgroundColor: Colors.bg, marginTop: -20, borderTopLeftRadius: 26, borderTopRightRadius: 26 },
+  content: { padding: 16, paddingTop: 22, gap: 12, paddingBottom: 28 },
+  sectionTitle: { fontSize: 15, fontWeight: '800', color: Colors.text, marginBottom: 2 },
+  subjectRow: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: Colors.card, borderRadius: Radius.md, padding: 12, borderWidth: 1, borderColor: Colors.border2, ...Shadow.sm },
+  subjectIcon: { width: 38, height: 38, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   subjectInfo: { flex: 1 },
-  subjectName: { fontSize: 13, fontWeight: '700', color: Colors.text },
+  subjectName: { fontSize: 13.5, fontWeight: '700', color: Colors.text },
   subjectMeta: { fontSize: 11, color: Colors.text2, marginTop: 2 },
+  subjectPct: { fontSize: 15, fontWeight: '900' },
 });

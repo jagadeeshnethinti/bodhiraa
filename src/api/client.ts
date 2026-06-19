@@ -1,4 +1,5 @@
 import { Env } from '../config/env';
+import { resolveMock } from './mock';
 import type { ApiEnvelope, ApiMeta } from './types';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -118,12 +119,54 @@ function buildUrl(path: string, query?: Query): string {
   return qs ? `${base}?${qs}` : base;
 }
 
+/**
+ * Mock transport used when `Env.useMock` is on. Simulates a short latency and
+ * honours caller cancellation so it behaves like `request()` to every consumer.
+ */
+async function mockFetch<T>(
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+  path: string,
+  ctx: { body?: unknown; query?: Query; token: string | null; signal?: AbortSignal },
+): Promise<ApiResult<T>> {
+  const { signal } = ctx;
+  await new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new ApiError('Request cancelled.', { status: 0, kind: 'network' }));
+      return;
+    }
+    const timer = setTimeout(resolve, 260);
+    signal?.addEventListener(
+      'abort',
+      () => {
+        clearTimeout(timer);
+        reject(new ApiError('Request cancelled.', { status: 0, kind: 'network' }));
+      },
+      { once: true },
+    );
+  });
+
+  const result = resolveMock(method, path, { body: ctx.body, query: ctx.query, token: ctx.token });
+  if (!result) {
+    if (Env.isLocal) {
+      // eslint-disable-next-line no-console
+      console.warn(`[mock] unhandled ${method} ${path} — returning empty payload`);
+    }
+    return { data: null as unknown as T, meta: null, message: null };
+  }
+  return { data: result.data as T, meta: result.meta, message: result.message };
+}
+
 async function request<T>(
   method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
   path: string,
   options: RequestOptions = {},
 ): Promise<ApiResult<T>> {
   const { body, query, auth = true, signal } = options;
+
+  // UI-design mode: serve from the in-memory mock backend, no network.
+  if (Env.useMock) {
+    return mockFetch<T>(method, path, { body, query, token: auth ? authToken : null, signal });
+  }
 
   const headers: Record<string, string> = {
     Accept: 'application/json',

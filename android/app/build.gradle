@@ -24,8 +24,8 @@ react {
     // debuggableVariants = ["liteDebug", "liteDebugOptimized", "prodDebug", "prodDebugOptimized"]
 
     /* Bundling */
-    //   Absolute path — Android Studio doesn't inherit the shell PATH on macOS.
-    nodeExecutableAndArgs = ["/opt/homebrew/bin/node"]
+    //   Use "node" from PATH so codegen/bundling works cross-platform (Windows/macOS/Linux).
+    nodeExecutableAndArgs = ["node"]
     //
     //   The command to run when bundling. By default is 'bundle'
     // bundleCommand = "ram-bundle"

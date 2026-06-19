@@ -20,6 +20,7 @@ export type AuthStackParamList = {
   Login: undefined;
   SignUp: undefined;
   PhoneLogin: undefined;
+  ForgotPassword: undefined;
   /** `devOtp` is only set in local env where the backend echoes the code. */
   OTP: { phone: string; devOtp?: string };
 };
@@ -58,6 +59,10 @@ export type StudentStackParamList = {
   LiveClasses: undefined;
   LiveClassDetail: { liveId: number; title?: string };
   Notifications: undefined;
+  Subscription: undefined;
+  Settings: undefined;
+  Account: undefined;
+  Language: undefined;
 };
 
 // ── Teacher / Parent / Admin (screens wired in a later pass) ────────────────────

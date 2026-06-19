@@ -1,12 +1,17 @@
 import React from 'react';
 import { View, StyleSheet, ViewStyle } from 'react-native';
 import { Colors, Radius, Shadow } from '../../theme';
+import { Entrance } from './anim';
 
 interface CardProps {
   children: React.ReactNode;
   style?: ViewStyle;
   variant?: 'default' | 'ai' | 'elevated';
   padding?: number;
+  /** Fade + rise on mount (default true). Set false inside already-animated lists. */
+  animateIn?: boolean;
+  /** Stagger position when several cards mount together. */
+  index?: number;
 }
 
 export const Card: React.FC<CardProps> = ({
@@ -14,13 +19,19 @@ export const Card: React.FC<CardProps> = ({
   style,
   variant = 'default',
   padding = 12,
+  animateIn = true,
+  index = 0,
 }) => {
   const variantStyle = cardVariants[variant];
-  return (
-    <View style={[styles.base, { padding }, variantStyle, style]}>
-      {children}
-    </View>
-  );
+  const cardStyle = [styles.base, { padding }, variantStyle, style];
+  if (animateIn) {
+    return (
+      <Entrance index={index} style={cardStyle}>
+        {children}
+      </Entrance>
+    );
+  }
+  return <View style={cardStyle}>{children}</View>;
 };
 
 const cardVariants: Record<string, ViewStyle> = {

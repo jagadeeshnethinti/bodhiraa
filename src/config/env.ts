@@ -19,6 +19,15 @@ const DEV_HOST =
   }) ?? 'http://127.0.0.1:8000';
 
 export const Env = {
+  /**
+   * UI-design mode. When true, the app runs against an in-memory mock backend
+   * (see `src/api/mock`) and never touches the network — every screen renders
+   * with realistic sample data and you can sign in as any role.
+   *
+   * SET THIS TO `false` TO USE THE REAL BACKEND at `apiBaseUrl` below. Nothing
+   * else needs to change.
+   */
+  useMock: true,
   /** Fully-qualified API root, e.g. `http://10.0.2.2:8000/api/v1`. */
   apiBaseUrl: `${DEV_HOST}/api/v1`,
   /**

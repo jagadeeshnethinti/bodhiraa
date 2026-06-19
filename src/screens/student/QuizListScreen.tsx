@@ -13,6 +13,7 @@ import { Colors, Radius, Shadow } from '../../theme';
 import { Chip } from '../../components/common/Chip';
 import { Icon } from '../../components/common/Icon';
 import { LoadingState, ErrorState, EmptyState } from '../../components/common/ScreenStates';
+import { Entrance, PressableScale } from '../../components/common/anim';
 import { useApi } from '../../hooks/useApi';
 import { StudentApi, type ApiQuizSummary } from '../../api';
 import { clockTime } from '../../utils/ui';
@@ -61,44 +62,46 @@ export const QuizListScreen: React.FC<{ navigation: any }> = ({ navigation }) =>
           {quizzes.length === 0 ? (
             <EmptyState icon="edit" title="No quizzes yet" sub="New quizzes from your teachers will show up here." />
           ) : (
-            quizzes.map(q => {
+            quizzes.map((q, i) => {
               const chip = statusChip(q.status);
               return (
-                <TouchableOpacity key={q.id} style={styles.card} activeOpacity={0.85} onPress={() => open(q)}>
-                  <View style={styles.cardTop}>
-                    <Text style={styles.title} numberOfLines={2}>
-                      {q.title}
-                    </Text>
-                    <Chip label={chip.label} variant={chip.variant} small />
-                  </View>
-                  <View style={styles.metaRow}>
-                    {q.subject ? (
-                      <View style={styles.metaItem}>
-                        <Icon name="book" size={13} color={Colors.text3} />
-                        <Text style={styles.meta}>{q.subject}</Text>
-                      </View>
-                    ) : null}
-                    {q.questions_count != null ? (
-                      <View style={styles.metaItem}>
-                        <Icon name="help" size={13} color={Colors.text3} />
-                        <Text style={styles.meta}>{q.questions_count} Qs</Text>
-                      </View>
-                    ) : null}
-                    {q.duration_min != null ? (
-                      <View style={styles.metaItem}>
-                        <Icon name="clock" size={13} color={Colors.text3} />
-                        <Text style={styles.meta}>{q.duration_min}m</Text>
-                      </View>
-                    ) : null}
-                    {q.total_marks != null ? (
-                      <View style={styles.metaItem}>
-                        <Icon name="star" size={13} color={Colors.warning} />
-                        <Text style={styles.meta}>{q.total_marks} marks</Text>
-                      </View>
-                    ) : null}
-                  </View>
-                  {q.starts_at ? <Text style={styles.starts}>Starts {clockTime(q.starts_at)}</Text> : null}
-                </TouchableOpacity>
+                <Entrance key={q.id} index={i}>
+                  <PressableScale style={styles.card} onPress={() => open(q)}>
+                    <View style={styles.cardTop}>
+                      <Text style={styles.title} numberOfLines={2}>
+                        {q.title}
+                      </Text>
+                      <Chip label={chip.label} variant={chip.variant} small />
+                    </View>
+                    <View style={styles.metaRow}>
+                      {q.subject ? (
+                        <View style={styles.metaItem}>
+                          <Icon name="book" size={13} color={Colors.text3} />
+                          <Text style={styles.meta}>{q.subject}</Text>
+                        </View>
+                      ) : null}
+                      {q.questions_count != null ? (
+                        <View style={styles.metaItem}>
+                          <Icon name="help" size={13} color={Colors.text3} />
+                          <Text style={styles.meta}>{q.questions_count} Qs</Text>
+                        </View>
+                      ) : null}
+                      {q.duration_min != null ? (
+                        <View style={styles.metaItem}>
+                          <Icon name="clock" size={13} color={Colors.text3} />
+                          <Text style={styles.meta}>{q.duration_min}m</Text>
+                        </View>
+                      ) : null}
+                      {q.total_marks != null ? (
+                        <View style={styles.metaItem}>
+                          <Icon name="star" size={13} color={Colors.warning} />
+                          <Text style={styles.meta}>{q.total_marks} marks</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                    {q.starts_at ? <Text style={styles.starts}>Starts {clockTime(q.starts_at)}</Text> : null}
+                  </PressableScale>
+                </Entrance>
               );
             })
           )}

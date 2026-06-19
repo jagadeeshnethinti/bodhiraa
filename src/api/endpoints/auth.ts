@@ -16,6 +16,14 @@ export interface LoginInput {
   identifier: string; // email | phone | username
   password: string;
   device?: string;
+  /** Present when a student signs in *with their school* (vs a personal account). */
+  school_code?: string;
+  /**
+   * UI-design/mock only — lets the mock backend return the selected role so you
+   * can preview each role's app. The real backend ignores/validates this and
+   * derives the role from the credentials.
+   */
+  role?: Extract<Role, 'student' | 'teacher' | 'parent' | 'admin'>;
 }
 
 export interface OtpVerifyInput {
@@ -32,6 +40,11 @@ export const AuthApi = {
 
   async login(input: LoginInput): Promise<AuthPayload> {
     return (await api.post<AuthPayload>('/auth/login', input, { auth: false })).data;
+  },
+
+  /** Request a password-reset link/code to be sent to the account's email. */
+  async forgotPassword(email: string): Promise<{ email: string }> {
+    return (await api.post<{ email: string }>('/auth/forgot-password', { email }, { auth: false })).data;
   },
 
   /**

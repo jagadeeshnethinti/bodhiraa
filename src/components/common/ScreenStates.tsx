@@ -1,8 +1,9 @@
 import React from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 import { Colors } from '../../theme';
 import { Button } from './Button';
 import { Icon, IconName } from './Icon';
+import { Entrance, SkeletonList } from './anim';
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28, gap: 10 },
@@ -13,12 +14,8 @@ const styles = StyleSheet.create({
   retry: { marginTop: 8, minWidth: 160 },
 });
 
-export const LoadingState: React.FC<{ label?: string }> = ({ label }) => (
-  <View style={styles.center}>
-    <ActivityIndicator size="large" color={Colors.primary} />
-    {label ? <Text style={styles.hint}>{label}</Text> : null}
-  </View>
-);
+/** A shimmering skeleton placeholder — reads as premium vs. a bare spinner. */
+export const LoadingState: React.FC<{ label?: string }> = () => <SkeletonList rows={4} />;
 
 export const ErrorState: React.FC<{
   message?: string | null;
@@ -26,14 +23,14 @@ export const ErrorState: React.FC<{
   icon?: IconName;
   title?: string;
 }> = ({ message, onRetry, icon = 'warning', title = 'Something went wrong' }) => (
-  <View style={styles.center}>
+  <Entrance style={styles.center}>
     <Icon name={icon} size={40} color={Colors.text3} style={styles.icon} />
     <Text style={styles.title}>{title}</Text>
     {message ? <Text style={styles.sub}>{message}</Text> : null}
     {onRetry ? (
       <Button label="Try again" variant="outline" fullWidth={false} style={styles.retry} onPress={onRetry} />
     ) : null}
-  </View>
+  </Entrance>
 );
 
 export const EmptyState: React.FC<{
@@ -41,9 +38,9 @@ export const EmptyState: React.FC<{
   title: string;
   sub?: string;
 }> = ({ icon = 'folder', title, sub }) => (
-  <View style={styles.center}>
+  <Entrance style={styles.center}>
     <Icon name={icon} size={40} color={Colors.text3} style={styles.icon} />
     <Text style={styles.title}>{title}</Text>
     {sub ? <Text style={styles.sub}>{sub}</Text> : null}
-  </View>
+  </Entrance>
 );

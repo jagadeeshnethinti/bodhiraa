@@ -1,52 +1,43 @@
 import React from 'react';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Colors } from '../theme';
-import { TabIcon } from '../components/common/TabIcon';
+import { PremiumTabBar } from '../components/common/PremiumTabBar';
 
-import { ParentHomeScreen } from '../screens/parent/ParentHomeScreen';
-import { ProgressScreen }   from '../screens/student/ProgressScreen';
-import { ProfileScreen }    from '../screens/student/ProfileScreen';
+import { ParentHomeScreen }       from '../screens/parent/ParentHomeScreen';
+import { ParentChildScreen }      from '../screens/parent/ParentChildScreen';
+import { ParentAttendanceScreen } from '../screens/parent/ParentAttendanceScreen';
+import { ParentReportsScreen }    from '../screens/parent/ParentReportsScreen';
+import { ParentProfileScreen }    from '../screens/parent/ParentProfileScreen';
+import { ParentEditProfileScreen } from '../screens/parent/ParentEditProfileScreen';
+import { ParentNotificationsScreen } from '../screens/parent/ParentNotificationsScreen';
+import { ParentFeesScreen }       from '../screens/parent/ParentFeesScreen';
+import { LanguageScreen }         from '../screens/student/LanguageScreen';
 
+// ── Parent tabs ───────────────────────────────────────────────────────────────
 const Tab = createBottomTabNavigator();
 
-export const ParentNavigator = () => (
+const ParentTabs = () => (
   <Tab.Navigator
-    screenOptions={({ route }) => ({
-      headerShown: false,
-      tabBarActiveTintColor:   Colors.primary,
-      tabBarInactiveTintColor: Colors.text3,
-      tabBarStyle: tabBarStyle,
-      tabBarLabelStyle: tabLabelStyle,
-      tabBarItemStyle: { paddingVertical: 2 },
-      tabBarIcon: ({ focused, color }) => (
-        <TabIcon name={route.name} color={color} size={23} focused={focused} />
-      ),
-    })}
+    tabBar={props => <PremiumTabBar {...props} />}
+    screenOptions={{ headerShown: false }}
   >
-    <Tab.Screen name="PHome"       component={ParentHomeScreen} options={{ tabBarLabel: 'Dashboard' }} />
-    <Tab.Screen name="PChild"      component={ProgressScreen}   options={{ tabBarLabel: 'My Child' }} />
-    <Tab.Screen name="PAttendance" component={ProgressScreen}   options={{ tabBarLabel: 'Attendance' }} />
-    <Tab.Screen name="PReports"    component={ProgressScreen}   options={{ tabBarLabel: 'Reports' }} />
-    <Tab.Screen name="PProfile"    component={ProfileScreen}    options={{ tabBarLabel: 'Profile' }} />
+    <Tab.Screen name="PHome"       component={ParentHomeScreen}       options={{ tabBarLabel: 'Dashboard' }} />
+    <Tab.Screen name="PChild"      component={ParentChildScreen}      options={{ tabBarLabel: 'My Child' }} />
+    <Tab.Screen name="PAttendance" component={ParentAttendanceScreen} options={{ tabBarLabel: 'Attendance' }} />
+    <Tab.Screen name="PReports"    component={ParentReportsScreen}    options={{ tabBarLabel: 'Reports' }} />
+    <Tab.Screen name="PProfile"    component={ParentProfileScreen}    options={{ tabBarLabel: 'Profile' }} />
   </Tab.Navigator>
 );
 
-const tabBarStyle = {
-  backgroundColor: Colors.white,
-  borderTopWidth: 1,
-  borderTopColor: 'rgba(42,14,19,0.07)',
-  height: 72,
-  paddingBottom: 14,
-  paddingTop: 8,
-  shadowColor: '#2A0E13',
-  shadowOffset: { width: 0, height: -4 },
-  shadowOpacity: 0.06,
-  shadowRadius: 12,
-  elevation: 10,
-} as const;
+// ── Parent stack (tabs + profile sub-screens) ────────────────────────────────
+const Stack = createNativeStackNavigator();
 
-const tabLabelStyle = {
-  fontSize: 10,
-  fontWeight: '600' as const,
-  marginTop: 2,
-};
+export const ParentNavigator = () => (
+  <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Screen name="ParentTabs" component={ParentTabs} />
+    <Stack.Screen name="ParentEditProfile" component={ParentEditProfileScreen} />
+    <Stack.Screen name="ParentNotifications" component={ParentNotificationsScreen} />
+    <Stack.Screen name="ParentFees" component={ParentFeesScreen} />
+    <Stack.Screen name="Language" component={LanguageScreen} />
+  </Stack.Navigator>
+);

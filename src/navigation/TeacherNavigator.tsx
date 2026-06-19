@@ -1,53 +1,39 @@
 import React from 'react';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Colors } from '../theme';
-import { TabIcon } from '../components/common/TabIcon';
+import { PremiumTabBar } from '../components/common/PremiumTabBar';
 
-import { TeacherHomeScreen } from '../screens/teacher/TeacherHomeScreen';
-import { ProfileScreen }     from '../screens/student/ProfileScreen';
-import { ProgressScreen }    from '../screens/student/ProgressScreen';
-import { CoursesScreen }     from '../screens/student/CoursesScreen';
+import { TeacherHomeScreen }        from '../screens/teacher/TeacherHomeScreen';
+import { TeacherStudentsScreen }    from '../screens/teacher/TeacherStudentsScreen';
+import { TeacherContentScreen }     from '../screens/teacher/TeacherContentScreen';
+import { TeacherReportsScreen }     from '../screens/teacher/TeacherReportsScreen';
+import { TeacherProfileScreen }     from '../screens/teacher/TeacherProfileScreen';
+import { TeacherEditProfileScreen } from '../screens/teacher/TeacherEditProfileScreen';
+import { LanguageScreen }           from '../screens/student/LanguageScreen';
 
+// ── Teacher tabs ──────────────────────────────────────────────────────────────
 const Tab = createBottomTabNavigator();
 
-export const TeacherNavigator = () => (
+const TeacherTabs = () => (
   <Tab.Navigator
-    screenOptions={({ route }) => ({
-      headerShown: false,
-      tabBarActiveTintColor:   Colors.primary,
-      tabBarInactiveTintColor: Colors.text3,
-      tabBarStyle: tabBarStyle,
-      tabBarLabelStyle: tabLabelStyle,
-      tabBarItemStyle: { paddingVertical: 2 },
-      tabBarIcon: ({ focused, color }) => (
-        <TabIcon name={route.name} color={color} size={23} focused={focused} />
-      ),
-    })}
+    tabBar={props => <PremiumTabBar {...props} />}
+    screenOptions={{ headerShown: false }}
   >
-    <Tab.Screen name="Dashboard"      component={TeacherHomeScreen} options={{ tabBarLabel: 'Dashboard' }} />
-    <Tab.Screen name="Students"       component={ProgressScreen}    options={{ tabBarLabel: 'Students' }} />
-    <Tab.Screen name="Content"        component={CoursesScreen}     options={{ tabBarLabel: 'Content' }} />
-    <Tab.Screen name="Reports"        component={ProgressScreen}    options={{ tabBarLabel: 'Reports' }} />
-    <Tab.Screen name="TeacherProfile" component={ProfileScreen}     options={{ tabBarLabel: 'Profile' }} />
+    <Tab.Screen name="Dashboard"      component={TeacherHomeScreen}     options={{ tabBarLabel: 'Dashboard' }} />
+    <Tab.Screen name="Students"       component={TeacherStudentsScreen} options={{ tabBarLabel: 'Students' }} />
+    <Tab.Screen name="Content"        component={TeacherContentScreen}  options={{ tabBarLabel: 'Content' }} />
+    <Tab.Screen name="Reports"        component={TeacherReportsScreen}  options={{ tabBarLabel: 'Reports' }} />
+    <Tab.Screen name="TeacherProfile" component={TeacherProfileScreen}  options={{ tabBarLabel: 'Profile' }} />
   </Tab.Navigator>
 );
 
-const tabBarStyle = {
-  backgroundColor: Colors.white,
-  borderTopWidth: 1,
-  borderTopColor: 'rgba(42,14,19,0.07)',
-  height: 72,
-  paddingBottom: 14,
-  paddingTop: 8,
-  shadowColor: '#2A0E13',
-  shadowOffset: { width: 0, height: -4 },
-  shadowOpacity: 0.06,
-  shadowRadius: 12,
-  elevation: 10,
-} as const;
+// ── Teacher stack (tabs + profile sub-screens) ───────────────────────────────
+const Stack = createNativeStackNavigator();
 
-const tabLabelStyle = {
-  fontSize: 10,
-  fontWeight: '600' as const,
-  marginTop: 2,
-};
+export const TeacherNavigator = () => (
+  <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Screen name="TeacherTabs" component={TeacherTabs} />
+    <Stack.Screen name="TeacherEditProfile" component={TeacherEditProfileScreen} />
+    <Stack.Screen name="Language" component={LanguageScreen} />
+  </Stack.Navigator>
+);

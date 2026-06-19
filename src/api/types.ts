@@ -47,7 +47,25 @@ export interface School {
   name: string;
   code: string | null;
   logo: string | null;
+  /** Hex brand colour the school's app theme is built from (e.g. "#2F4DA0"). */
+  theme_color?: string | null;
 }
+
+/** Billing plan attached to a user (B2C students). */
+export type PlanTier = 'free' | 'monthly' | 'yearly' | 'school';
+
+export interface UserPlan {
+  tier: PlanTier;
+  /** ISO date the current cycle ends — drives the "days remaining" countdown. */
+  expires_at: string | null;
+}
+
+/**
+ * Whether this learner's performance is shared with school staff. School-mode
+ * students are `school` (teachers see their progress); personal/B2C students who
+ * opted to learn privately are `private` (hidden from teachers).
+ */
+export type Visibility = 'school' | 'private';
 
 export interface ApiUser {
   id: number;
@@ -62,6 +80,8 @@ export interface ApiUser {
   dob: string | null;
   status: string;
   school: School | null;
+  plan: UserPlan | null;
+  visibility: Visibility;
   email_verified: boolean;
   phone_verified: boolean;
   created_at: string;

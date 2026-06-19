@@ -2,8 +2,7 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StudentStackParamList, StudentTabParamList } from '../types';
-import { Colors } from '../theme';
-import { TabIcon } from '../components/common/TabIcon';
+import { PremiumTabBar } from '../components/common/PremiumTabBar';
 
 import { HomeScreen } from '../screens/student/HomeScreen';
 import { CoursesScreen } from '../screens/student/CoursesScreen';
@@ -22,23 +21,18 @@ import { LiveClassDetailScreen } from '../screens/student/LiveClassDetailScreen'
 import { NotificationsScreen } from '../screens/student/NotificationsScreen';
 import { ProfileScreen } from '../screens/student/ProfileScreen';
 import { ProgressScreen } from '../screens/student/ProgressScreen';
+import { SubscriptionScreen } from '../screens/student/SubscriptionScreen';
+import { SettingsScreen } from '../screens/student/SettingsScreen';
+import { AccountScreen } from '../screens/student/AccountScreen';
+import { LanguageScreen } from '../screens/student/LanguageScreen';
 
 // ── Student Tab Navigator ─────────────────────────────────────────────────────
 const Tab = createBottomTabNavigator<StudentTabParamList>();
 
 const StudentTabs = () => (
   <Tab.Navigator
-    screenOptions={({ route }) => ({
-      headerShown: false,
-      tabBarActiveTintColor: Colors.primary,
-      tabBarInactiveTintColor: Colors.text3,
-      tabBarStyle,
-      tabBarLabelStyle: tabLabelStyle,
-      tabBarItemStyle: { paddingVertical: 2 },
-      tabBarIcon: ({ focused, color }) => (
-        <TabIcon name={route.name} color={color} size={23} focused={focused} />
-      ),
-    })}
+    tabBar={props => <PremiumTabBar {...props} />}
+    screenOptions={{ headerShown: false }}
   >
     <Tab.Screen name="Home" component={HomeScreen} options={{ tabBarLabel: 'Home' }} />
     <Tab.Screen name="Courses" component={CoursesScreen} options={{ tabBarLabel: 'Courses' }} />
@@ -66,26 +60,9 @@ export const StudentNavigator = () => (
     <Stack.Screen name="LiveClasses" component={LiveClassesScreen} />
     <Stack.Screen name="LiveClassDetail" component={LiveClassDetailScreen} />
     <Stack.Screen name="Notifications" component={NotificationsScreen} />
+    <Stack.Screen name="Subscription" component={SubscriptionScreen} />
+    <Stack.Screen name="Settings" component={SettingsScreen} />
+    <Stack.Screen name="Account" component={AccountScreen} />
+    <Stack.Screen name="Language" component={LanguageScreen} />
   </Stack.Navigator>
 );
-
-// ── Shared tab bar styles ─────────────────────────────────────────────────────
-const tabBarStyle = {
-  backgroundColor: Colors.white,
-  borderTopWidth: 1,
-  borderTopColor: 'rgba(42,14,19,0.07)',
-  height: 72,
-  paddingBottom: 14,
-  paddingTop: 8,
-  shadowColor: '#2A0E13',
-  shadowOffset: { width: 0, height: -4 },
-  shadowOpacity: 0.06,
-  shadowRadius: 12,
-  elevation: 10,
-} as const;
-
-const tabLabelStyle = {
-  fontSize: 10,
-  fontWeight: '600' as const,
-  marginTop: 2,
-};
