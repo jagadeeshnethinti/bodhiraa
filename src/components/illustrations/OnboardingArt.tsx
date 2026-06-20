@@ -15,6 +15,7 @@ import Svg, {
   LinearGradient,
   Stop,
   Circle,
+  Ellipse,
   Rect,
   G,
   Line,
@@ -22,6 +23,8 @@ import Svg, {
   Polyline,
   Polygon,
 } from 'react-native-svg';
+
+const AnimatedG = Animated.createAnimatedComponent(G);
 
 export type ArtVariant = 'ai' | 'analytics' | 'achieve';
 
@@ -166,6 +169,8 @@ export const StudentReadingArt: React.FC<{ size?: number }> = ({ size = 236 }) =
   const pulse = useRef(new Animated.Value(0)).current;
   const bob = useRef(new Animated.Value(0)).current;
   const flip = useRef(new Animated.Value(0)).current;
+  const blink = useRef(new Animated.Value(0)).current;
+  const scan = useRef(new Animated.Value(0)).current; // eyes track across the line (head stays still)
   const motes = useRef([0, 1, 2, 3].map(() => new Animated.Value(0))).current;
 
   useEffect(() => {
@@ -185,10 +190,30 @@ export const StudentReadingArt: React.FC<{ size?: number }> = ({ size = 236 }) =
           Animated.timing(pulse, { toValue: 0, duration: 1800, easing: ease, useNativeDriver: true }),
         ]),
       ),
+      // Soft "breathing" bob of the whole child.
       Animated.loop(
         Animated.sequence([
           Animated.timing(bob, { toValue: 1, duration: 2000, easing: ease, useNativeDriver: true }),
           Animated.timing(bob, { toValue: 0, duration: 2000, easing: ease, useNativeDriver: true }),
+        ]),
+      ),
+      // Occasional quick eye-blink so the child feels alive (JS driver — SVG group opacity).
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(2600),
+          Animated.timing(blink, { toValue: 1, duration: 90, easing: Easing.in(Easing.quad), useNativeDriver: false }),
+          Animated.timing(blink, { toValue: 0, duration: 110, easing: Easing.out(Easing.quad), useNativeDriver: false }),
+          Animated.delay(180),
+          Animated.timing(blink, { toValue: 1, duration: 90, easing: Easing.in(Easing.quad), useNativeDriver: false }),
+          Animated.timing(blink, { toValue: 0, duration: 110, easing: Easing.out(Easing.quad), useNativeDriver: false }),
+        ]),
+      ),
+      // Eyes scan left→right across each line, with a quick return sweep.
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(scan, { toValue: 1, duration: 1700, easing: Easing.inOut(Easing.quad), useNativeDriver: false }),
+          Animated.timing(scan, { toValue: 0, duration: 320, easing: Easing.out(Easing.quad), useNativeDriver: false }),
+          Animated.delay(500),
         ]),
       ),
       ...motes.map((m, i) =>
@@ -204,12 +229,19 @@ export const StudentReadingArt: React.FC<{ size?: number }> = ({ size = 236 }) =
     ];
     loops.forEach(l => l.start());
     return () => loops.forEach(l => l.stop());
-  }, [pulse, bob, flip, motes]);
+  }, [pulse, bob, flip, blink, scan, motes]);
 
   const k = size / 200; // SVG units → px
   const bobY = bob.interpolate({ inputRange: [0, 1], outputRange: [3, -3] });
   const glowScale = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1.08] });
   const glowOpacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.5, 0.9] });
+
+  // Blink: crossfade open eyes → closed lids.
+  const eyesOpen = blink.interpolate({ inputRange: [0, 1], outputRange: [1, 0] });
+  const eyesShut = blink.interpolate({ inputRange: [0, 1], outputRange: [0, 1] });
+
+  // Eyes drift left→right as they read the line (head stays perfectly still).
+  const eyeShift = scan.interpolate({ inputRange: [0, 1], outputRange: [-1.4, 1.4] });
 
   // Page-flip: rotate the page over the spine (left edge).
   const flipRotate = flip.interpolate({ inputRange: [0, 0.5, 1], outputRange: ['0deg', '-165deg', '-165deg'] });
@@ -273,13 +305,131 @@ export const StudentReadingArt: React.FC<{ size?: number }> = ({ size = 236 }) =
               <Stop offset="0" stopColor="#FBEAD0" />
               <Stop offset="1" stopColor="#E6C696" />
             </LinearGradient>
+            {/* Warm skin + hair + cosy sweater so it reads as a real child */}
+            <LinearGradient id="rSkin" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor="#F7D9B5" />
+              <Stop offset="1" stopColor="#E7B488" />
+            </LinearGradient>
+            <LinearGradient id="rHair" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor="#4A2E1C" />
+              <Stop offset="1" stopColor="#26140B" />
+            </LinearGradient>
+            <LinearGradient id="rSweater" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor="#D8A86B" />
+              <Stop offset="1" stopColor="#9A6A38" />
+            </LinearGradient>
+            <LinearGradient id="rPants" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor="#3A2A1E" />
+              <Stop offset="1" stopColor="#211309" />
+            </LinearGradient>
+            <RadialGradient id="rCheek" cx="50%" cy="50%" r="50%">
+              <Stop offset="0" stopColor="#EE9A82" stopOpacity="0.8" />
+              <Stop offset="1" stopColor="#EE9A82" stopOpacity="0" />
+            </RadialGradient>
           </Defs>
 
-          {/* Student */}
-          <Path d="M58 132 Q58 92 100 92 Q142 92 142 132 Z" fill="url(#rCard)" stroke={GOLD} strokeOpacity="0.5" strokeWidth="1.5" />
-          <Circle cx="100" cy="60" r="19" fill="url(#rGold)" />
-          <Path d="M80 58 Q80 36 100 36 Q120 36 120 58 Q110 49 100 49 Q90 49 80 58 Z" fill="#1A0A0C" />
-          <Path d="M89 97 L100 108 L111 97" fill="none" stroke={GOLD} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          {/* Soft floor shadow grounds the child */}
+          <Ellipse cx="100" cy="178" rx="58" ry="7" fill="#1A0A0C" opacity="0.45" />
+
+          {/* Crossed legs — the boy sits on the floor reading */}
+          <Path
+            d="M64 150 Q50 152 49 163 Q49 173 64 173 L136 173 Q151 173 151 163 Q150 152 136 150 Q118 157 100 157 Q82 157 64 150 Z"
+            fill="url(#rPants)"
+            stroke="#1A0A0C"
+            strokeOpacity="0.5"
+            strokeWidth="1.2"
+          />
+          {/* far leg in shadow — adds depth to the cross-legged sit */}
+          <Path d="M100 157 Q118 157 136 150 Q150 152 151 163 Q151 173 136 173 L103 173 Q109 164 100 157 Z" fill="#1A0A0C" opacity="0.22" />
+          {/* rounded knee highlights catching the light */}
+          <Ellipse cx="63" cy="158" rx="11" ry="6" fill="#5A4430" opacity="0.55" />
+          <Ellipse cx="137" cy="158" rx="11" ry="6" fill="#5A4430" opacity="0.35" />
+          {/* folded shins + knee crease */}
+          <Path d="M64 158 Q100 150 136 158" fill="none" stroke="#1A0A0C" strokeOpacity="0.4" strokeWidth="1.6" strokeLinecap="round" />
+          <Path d="M88 156 Q100 168 112 156" fill="none" stroke="#1A0A0C" strokeOpacity="0.35" strokeWidth="1.4" strokeLinecap="round" />
+          {/* little feet peeking out from the cross-legged sit */}
+          <Ellipse cx="84" cy="170" rx="7" ry="4.5" fill="url(#rSkin)" />
+          <Ellipse cx="116" cy="170" rx="7" ry="4.5" fill="url(#rSkin)" />
+          <Path d="M84 170 Q84 167 91 168" fill="none" stroke="#C98B5E" strokeOpacity="0.5" strokeWidth="0.9" strokeLinecap="round" />
+          <Path d="M116 170 Q116 167 109 168" fill="none" stroke="#C98B5E" strokeOpacity="0.5" strokeWidth="0.9" strokeLinecap="round" />
+
+          {/* Torso — shoulders narrowing to the waist, in a cosy knit sweater */}
+          <Path
+            d="M70 100 Q66 91 79 89 Q90 84 100 84 Q110 84 121 89 Q134 91 130 100 L133 147 Q133 154 124 155 L76 155 Q67 154 67 147 Z"
+            fill="url(#rSweater)"
+            stroke={GOLD}
+            strokeOpacity="0.45"
+            strokeWidth="1.5"
+          />
+          {/* form shading: lit left shoulder, shadowed right side + underarms */}
+          <Path d="M82 89 Q70 92 70 101 L73 150 Q78 152 85 151 Q80 120 82 89 Z" fill="#F0D3A6" opacity="0.22" />
+          <Path d="M119 89 Q132 92 130 101 L133 147 Q133 154 124 155 L114 155 Q121 120 119 89 Z" fill="#6E4A22" opacity="0.4" />
+          {/* soft creases where the fabric folds at the chest and waist */}
+          <Path d="M78 112 Q100 118 122 112" fill="none" stroke="#6E4A22" strokeOpacity="0.3" strokeWidth="1.4" strokeLinecap="round" />
+          <Path d="M74 138 Q100 144 126 138" fill="none" stroke="#6E4A22" strokeOpacity="0.3" strokeWidth="1.4" strokeLinecap="round" />
+          {/* knit ribbing */}
+          <G stroke="#7A5226" strokeOpacity="0.4" strokeWidth="1.2" strokeLinecap="round">
+            <Line x1="80" y1="108" x2="78" y2="150" />
+            <Line x1="100" y1="106" x2="100" y2="150" />
+            <Line x1="120" y1="108" x2="122" y2="150" />
+          </G>
+          {/* collar */}
+          <Path d="M88 92 Q100 104 112 92" fill="none" stroke="#1A0A0C" strokeOpacity="0.3" strokeWidth="2.5" strokeLinecap="round" />
+
+          {/* Neck — sits lower under the jaw so it reads naturally (head drawn over the top) */}
+          <Rect x="92.5" y="76" width="15" height="11" rx="4" fill="url(#rSkin)" />
+          <Path d="M92.5 79 Q100 83 107.5 79 L107.5 81.5 Q100 85 92.5 81.5 Z" fill="#C98B5E" opacity="0.45" />
+
+          {/* Head group — held still & dropped a touch lower onto the neck; only the eyes read */}
+          <G y={6}>
+            {/* Head + ears */}
+            <Circle cx="79" cy="58" r="4.5" fill="url(#rSkin)" />
+            <Circle cx="121" cy="58" r="4.5" fill="url(#rSkin)" />
+            <Circle cx="100" cy="55" r="22" fill="url(#rSkin)" />
+
+            {/* Cheeks */}
+            <Circle cx="84" cy="63" r="6" fill="url(#rCheek)" />
+            <Circle cx="116" cy="63" r="6" fill="url(#rCheek)" />
+
+            {/* Hair — soft fringe */}
+            <Path
+              d="M78 56 Q74 28 100 28 Q126 28 122 56 Q118 46 110 44 Q106 51 98 50 Q92 50 88 45 Q82 47 78 56 Z"
+              fill="url(#rHair)"
+            />
+            <Path d="M100 28 Q108 26 112 32 Q106 30 100 33 Z" fill="url(#rHair)" />
+
+            {/* Eyebrows */}
+            <Path d="M86 50 Q90 47 95 49" fill="none" stroke="#3A2113" strokeWidth="1.6" strokeLinecap="round" />
+            <Path d="M105 49 Q110 47 114 50" fill="none" stroke="#3A2113" strokeWidth="1.6" strokeLinecap="round" />
+
+            {/* Eyes — open, pupils scanning across the line */}
+            <AnimatedG opacity={eyesOpen}>
+              <AnimatedG x={eyeShift}>
+                <Circle cx="91" cy="58" r="2.6" fill="#2A1810" />
+                <Circle cx="109" cy="58" r="2.6" fill="#2A1810" />
+                <Circle cx="92" cy="57" r="0.9" fill="#FFFFFF" />
+                <Circle cx="110" cy="57" r="0.9" fill="#FFFFFF" />
+              </AnimatedG>
+            </AnimatedG>
+            {/* Eyes — closed (blink) */}
+            <AnimatedG opacity={eyesShut}>
+              <Path d="M87 58 Q91 61 95 58" fill="none" stroke="#3A2113" strokeWidth="1.6" strokeLinecap="round" />
+              <Path d="M105 58 Q109 61 113 58" fill="none" stroke="#3A2113" strokeWidth="1.6" strokeLinecap="round" />
+            </AnimatedG>
+
+            {/* Nose + happy little smile */}
+            <Path d="M100 60 Q102 63 100 65" fill="none" stroke="#C98B5E" strokeWidth="1.4" strokeLinecap="round" />
+            <Path d="M93 69 Q100 75 107 69" fill="none" stroke="#9A4A36" strokeWidth="2" strokeLinecap="round" />
+          </G>
+
+          {/* Arms — upper arm out to a bent elbow, forearm in to hold the book */}
+          <Path d="M76 99 Q60 103 57 122 Q55 132 64 131 Q72 128 76 118 Q82 109 84 104 Z" fill="url(#rSweater)" stroke={GOLD} strokeOpacity="0.35" strokeWidth="1.2" />
+          <Path d="M124 99 Q140 103 143 122 Q145 132 136 131 Q128 128 124 118 Q118 109 116 104 Z" fill="url(#rSweater)" stroke={GOLD} strokeOpacity="0.35" strokeWidth="1.2" />
+          {/* arm shading: highlight along the top, shadow on the underside + at the elbow */}
+          <Path d="M76 100 Q62 104 59 120" fill="none" stroke="#F0D3A6" strokeOpacity="0.35" strokeWidth="2" strokeLinecap="round" />
+          <Path d="M124 100 Q138 104 141 120" fill="none" stroke="#F0D3A6" strokeOpacity="0.35" strokeWidth="2" strokeLinecap="round" />
+          <Path d="M63 130 Q70 128 75 119" fill="none" stroke="#6E4A22" strokeOpacity="0.4" strokeWidth="2" strokeLinecap="round" />
+          <Path d="M137 130 Q130 128 125 119" fill="none" stroke="#6E4A22" strokeOpacity="0.4" strokeWidth="2" strokeLinecap="round" />
 
           {/* Open book — cover then pages */}
           <Path
@@ -300,8 +450,21 @@ export const StudentReadingArt: React.FC<{ size?: number }> = ({ size = 236 }) =
             <Line x1="111" y1="131" x2="139" y2="133" />
           </G>
 
+          {/* Hands gripping the sides of the book */}
+          <G fill="url(#rSkin)" stroke="#C98B5E" strokeOpacity="0.45" strokeWidth="1">
+            <Path d="M53 117 Q66 115 66 126 Q66 135 56 134 Q49 133 49 126 Q49 119 53 117 Z" />
+            <Path d="M147 117 Q134 115 134 126 Q134 135 144 134 Q151 133 151 126 Q151 119 147 117 Z" />
+          </G>
+          {/* finger creases */}
+          <G stroke="#C98B5E" strokeOpacity="0.4" strokeWidth="0.9" strokeLinecap="round">
+            <Line x1="55" y1="121" x2="63" y2="120" />
+            <Line x1="55" y1="126" x2="64" y2="126" />
+            <Line x1="145" y1="121" x2="137" y2="120" />
+            <Line x1="145" y1="126" x2="136" y2="126" />
+          </G>
+
           {/* Desk hint */}
-          <Line x1="36" y1="153" x2="164" y2="153" stroke={GOLD} strokeOpacity="0.3" strokeWidth="2" strokeLinecap="round" />
+          <Line x1="36" y1="155" x2="164" y2="155" stroke={GOLD} strokeOpacity="0.3" strokeWidth="2" strokeLinecap="round" />
         </Svg>
 
         {/* Shadow the turning page casts onto the left page */}
