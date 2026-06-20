@@ -1,33 +1,25 @@
 /**
  * Teacher · Dashboard — premium home: a gradient hero with a glass class-average
- * ring + stat strip, a pending-review alert, today's schedule, class cards,
- * quick actions and an AI class insight. Animated throughout. Static mock data.
+ * ring + stat strip, a pending-review alert, class cards, quick actions and an AI
+ * class insight. Animated throughout. Wired to GET /teacher/home via
+ * TeacherApi.home().
  */
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, StatusBar, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, StatusBar, TouchableOpacity, RefreshControl } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Radius, Shadow } from '../../theme';
-import { ProgressBar } from '../../components/common/ProgressBar';
 import { CircularProgress } from '../../components/common/CircularProgress';
 import { AIBubble } from '../../components/common/AIBubble';
 import { Icon, IconName } from '../../components/common/Icon';
+import { LoadingState, ErrorState, EmptyState } from '../../components/common/ScreenStates';
 import { Entrance, PressableScale, AnimatedCounter, Pulse, Shimmer } from '../../components/common/anim';
 import { GlowBlob } from '../../components/illustrations/OnboardingArt';
+import { useApi } from '../../hooks/useApi';
+import { TeacherApi } from '../../api';
 import { useAuth } from '../../context/AuthContext';
 import { initials } from '../../utils/ui';
 
-const AVG = 76;
-const SCHEDULE: { time: string; cls: string; room: string; live: boolean }[] = [
-  { time: '09:00', cls: 'Physics · 11-A', room: 'Lab 2', live: true },
-  { time: '11:30', cls: 'Chemistry · 12-B', room: 'Room 14', live: false },
-  { time: '02:00', cls: 'Maths · 10-C', room: 'Room 7', live: false },
-];
-const CLASSES: { name: string; students: number; pending: number; pct: number }[] = [
-  { name: 'Class 11-A · Physics', students: 42, pending: 3, pct: 78 },
-  { name: 'Class 12-B · Chemistry', students: 38, pending: 7, pct: 65 },
-  { name: 'Class 10-C · Maths', students: 45, pending: 1, pct: 88 },
-];
 const ACTIONS: { icon: IconName; label: string; tint: string }[] = [
   { icon: 'edit', label: 'Create quiz', tint: '#F3E8FF' },
   { icon: 'upload', label: 'Upload', tint: '#EDFAF4' },
@@ -37,7 +29,18 @@ const ACTIONS: { icon: IconName; label: string; tint: string }[] = [
 
 export const TeacherHomeScreen: React.FC<{ navigation: any }> = () => {
   const { user } = useAuth();
-  const name = user?.name ?? 'Dr. Meera Sharma';
+  const home = useApi(signal => TeacherApi.home(signal), []);
+  const data = home.data;
+
+  const name = data?.teacher.name ?? user?.name ?? 'Teacher';
+  const stats = data?.stats;
+  // Attendance-today is the closest signal to an aggregate "class average" the
+  // backend exposes; fall back to 0 until home loads.
+  const avg = stats?.attendanceToday ?? 0;
+  const classes = data?.classes ?? [];
+  const pending = stats?.pending ?? 0;
+  const recent = data?.recentSubmissions ?? [];
+  const ungraded = recent.filter(r => !r.graded).length;
 
   return (
     <View style={styles.container}>
@@ -56,103 +59,123 @@ export const TeacherHomeScreen: React.FC<{ navigation: any }> = () => {
             </View>
             <TouchableOpacity style={styles.bellBtn} activeOpacity={0.8}>
               <Icon name="bell" size={18} color={Colors.primary} />
-              <View style={styles.bellDot} />
+              {pending > 0 && <View style={styles.bellDot} />}
             </TouchableOpacity>
           </View>
 
           <Entrance index={0} style={styles.heroCard}>
             <Shimmer />
-            <CircularProgress size={92} strokeWidth={9} progress={AVG} trackColor="rgba(245,232,208,0.14)">
+            <CircularProgress size={92} strokeWidth={9} progress={avg} trackColor="rgba(245,232,208,0.14)">
               <View style={styles.ringCenter}>
-                <AnimatedCounter value={`${AVG}%`} style={styles.ringPct} />
-                <Text style={styles.ringLbl}>Class avg</Text>
+                <AnimatedCounter value={`${avg}%`} style={styles.ringPct} />
+                <Text style={styles.ringLbl}>Attendance</Text>
               </View>
             </CircularProgress>
             <View style={styles.heroStats}>
-              <HeroStat value="3" label="Classes" />
+              <HeroStat value={String(stats?.classes ?? 0)} label="Classes" />
               <View style={styles.statDivider} />
-              <HeroStat value="125" label="Students" />
+              <HeroStat value={String(stats?.students ?? 0)} label="Students" />
               <View style={styles.statDivider} />
-              <HeroStat value="11" label="Pending" warn />
+              <HeroStat value={String(pending)} label="Pending" warn />
             </View>
           </Entrance>
         </SafeAreaView>
       </LinearGradient>
 
-      <ScrollView style={styles.sheet} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Pending alert */}
-        <Entrance index={0}>
-          <PressableScale style={styles.alertCard}>
-            <Pulse style={styles.alertIcon}><Icon name="clipboard" size={18} color={Colors.warning} /></Pulse>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.alertTitle}>11 assignments need review</Text>
-              <Text style={styles.alertSub}>3 overdue · tap to grade</Text>
-            </View>
-            <View style={styles.alertBtn}><Text style={styles.alertBtnTxt}>Review</Text></View>
-          </PressableScale>
-        </Entrance>
-
-        {/* Today's schedule */}
-        <Entrance index={1}><Text style={styles.sectionTitle}>Today's schedule</Text></Entrance>
-        <Entrance index={2} style={styles.scheduleCard}>
-          {SCHEDULE.map((s, i) => (
-            <View key={i} style={[styles.periodRow, i < SCHEDULE.length - 1 && styles.divider]}>
-              <View style={styles.timeCol}><Text style={styles.timeTxt}>{s.time}</Text></View>
-              <View style={styles.periodBar} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.periodCls}>{s.cls}</Text>
-                <Text style={styles.periodRoom}>{s.room}</Text>
-              </View>
-              {s.live ? (
-                <View style={styles.liveBadge}><Text style={styles.liveTxt}>LIVE</Text></View>
-              ) : (
-                <Text style={styles.chevron}>›</Text>
-              )}
-            </View>
-          ))}
-        </Entrance>
-
-        {/* Classes */}
-        <Entrance index={3}><Text style={[styles.sectionTitle, { marginTop: 4 }]}>My classes</Text></Entrance>
-        {CLASSES.map((c, i) => (
-          <Entrance key={c.name} index={4 + i}>
-            <PressableScale style={styles.classCard}>
-              <View style={styles.classIcon}><Icon name="library" size={20} color={Colors.primaryDark} /></View>
-              <View style={{ flex: 1, gap: 6 }}>
-                <View style={styles.classTop}>
-                  <Text style={styles.className}>{c.name}</Text>
-                  {c.pending > 0 && <View style={styles.pendingPill}><Text style={styles.pendingTxt}>{c.pending}</Text></View>}
+      {home.loading && !home.data ? (
+        <View style={styles.sheet}><LoadingState /></View>
+      ) : home.error && !home.data ? (
+        <View style={styles.sheet}><ErrorState message={home.error} onRetry={home.refetch} /></View>
+      ) : (
+        <ScrollView
+          style={styles.sheet}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={home.refreshing} onRefresh={home.refetch} tintColor={Colors.primary} />}
+        >
+          {/* Pending alert */}
+          {pending > 0 && (
+            <Entrance index={0}>
+              <PressableScale style={styles.alertCard}>
+                <Pulse style={styles.alertIcon}><Icon name="clipboard" size={18} color={Colors.warning} /></Pulse>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.alertTitle}>{pending} {pending === 1 ? 'assignment needs' : 'assignments need'} review</Text>
+                  <Text style={styles.alertSub}>Tap to grade pending submissions</Text>
                 </View>
-                <View style={styles.classBarRow}>
-                  <ProgressBar value={c.pct} variant={c.pct >= 75 ? 'success' : 'warning'} height={6} style={styles.classTrack} />
-                  <Text style={[styles.classPct, { color: c.pct >= 75 ? Colors.success : Colors.warning }]}>{c.pct}%</Text>
-                </View>
-                <Text style={styles.classMeta}>{c.students} students</Text>
-              </View>
-            </PressableScale>
+                <View style={styles.alertBtn}><Text style={styles.alertBtnTxt}>Review</Text></View>
+              </PressableScale>
+            </Entrance>
+          )}
+
+          {/* Recent submissions */}
+          {recent.length > 0 && (
+            <>
+              <Entrance index={1}><Text style={styles.sectionTitle}>Recent submissions</Text></Entrance>
+              <Entrance index={2} style={styles.scheduleCard}>
+                {recent.slice(0, 5).map((r, i) => (
+                  <View key={r.id} style={[styles.periodRow, i < Math.min(recent.length, 5) - 1 && styles.divider]}>
+                    <View style={styles.periodBar} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.periodCls} numberOfLines={1}>{r.assignmentTitle}</Text>
+                      <Text style={styles.periodRoom} numberOfLines={1}>{r.student} · {r.className}</Text>
+                    </View>
+                    {r.graded ? (
+                      <Text style={styles.chevron}>›</Text>
+                    ) : (
+                      <View style={styles.liveBadge}><Text style={styles.liveTxt}>NEW</Text></View>
+                    )}
+                  </View>
+                ))}
+              </Entrance>
+            </>
+          )}
+
+          {/* Classes */}
+          <Entrance index={3}><Text style={[styles.sectionTitle, { marginTop: 4 }]}>My classes</Text></Entrance>
+          {classes.length === 0 ? (
+            <EmptyState icon="library" title="No classes yet" sub="Classes assigned to you will appear here." />
+          ) : (
+            classes.map((c, i) => (
+              <Entrance key={c.id} index={4 + i}>
+                <PressableScale style={styles.classCard}>
+                  <View style={styles.classIcon}><Icon name="library" size={20} color={Colors.primaryDark} /></View>
+                  <View style={{ flex: 1, gap: 6 }}>
+                    <View style={styles.classTop}>
+                      <Text style={styles.className}>{c.name}</Text>
+                    </View>
+                    <Text style={styles.classMeta}>{c.students} students</Text>
+                  </View>
+                  <Text style={styles.chevron}>›</Text>
+                </PressableScale>
+              </Entrance>
+            ))
+          )}
+
+          {/* Quick actions */}
+          <Entrance index={7}><Text style={[styles.sectionTitle, { marginTop: 4 }]}>Quick actions</Text></Entrance>
+          <Entrance index={8} style={styles.actionsGrid}>
+            {ACTIONS.map(a => (
+              <PressableScale key={a.label} style={styles.actionTile}>
+                <View style={[styles.actionIcon, { backgroundColor: a.tint }]}><Icon name={a.icon} size={22} color={Colors.primaryDark} /></View>
+                <Text style={styles.actionLabel}>{a.label}</Text>
+              </PressableScale>
+            ))}
           </Entrance>
-        ))}
 
-        {/* Quick actions */}
-        <Entrance index={7}><Text style={[styles.sectionTitle, { marginTop: 4 }]}>Quick actions</Text></Entrance>
-        <Entrance index={8} style={styles.actionsGrid}>
-          {ACTIONS.map(a => (
-            <PressableScale key={a.label} style={styles.actionTile}>
-              <View style={[styles.actionIcon, { backgroundColor: a.tint }]}><Icon name={a.icon} size={22} color={Colors.primaryDark} /></View>
-              <Text style={styles.actionLabel}>{a.label}</Text>
-            </PressableScale>
-          ))}
-        </Entrance>
-
-        {/* AI insight */}
-        <Entrance index={9}>
-          <AIBubble
-            title="Bodhira AI · Class insight"
-            message="Class 11-A is struggling with wave optics — 68% scored below 60% in the last quiz. A short revision session could help."
-            actions={[{ label: 'Plan revision', variant: 'primary' }, { label: 'Dismiss', variant: 'gray' }]}
-          />
-        </Entrance>
-      </ScrollView>
+          {/* AI insight */}
+          <Entrance index={9}>
+            <AIBubble
+              title="Bodhira AI · Class insight"
+              message={
+                ungraded > 0
+                  ? `You have ${ungraded} ungraded submission${ungraded === 1 ? '' : 's'} waiting. Grading them keeps your class analytics fresh.`
+                  : 'Ask Bodhira AI to summarise class performance or draft a revision plan in seconds.'
+              }
+              actions={[{ label: 'Plan revision', variant: 'primary' }, { label: 'Dismiss', variant: 'gray' }]}
+            />
+          </Entrance>
+        </ScrollView>
+      )}
     </View>
   );
 };

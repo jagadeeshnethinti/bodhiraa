@@ -1,36 +1,35 @@
 /**
  * Admin · Users — directory of students, teachers and parents with role filters,
- * a search bar, pending approvals, and a user list with status. Static mock.
+ * a search bar, and a user list with status. Wired to GET /admin/users
+ * (role-filtered, paginated server-side).
  */
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, StatusBar, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, StatusBar, RefreshControl, Alert } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Radius, Shadow } from '../../theme';
 import { Button } from '../../components/common/Button';
+import { LoadingState, ErrorState, EmptyState } from '../../components/common/ScreenStates';
 import { Entrance, PressableScale, AnimatedCounter, Shimmer } from '../../components/common/anim';
 import { GlowBlob } from '../../components/illustrations/OnboardingArt';
-import { BoldIcon as Icon, BoldIconName as IconName } from '../../components/common/BoldIcon';
+import { BoldIcon as Icon } from '../../components/common/BoldIcon';
+import { useApi } from '../../hooks/useApi';
+import { AdminApi, type AdminUserRole, type ApiAdminUser } from '../../api/endpoints/admin';
 
-type Role = 'Students' | 'Teachers' | 'Parents';
-const ROLES: Role[] = ['Students', 'Teachers', 'Parents'];
-const COUNTS: Record<Role, string> = { Students: '1,248', Teachers: '68', Parents: '1,094' };
-
-type U = { name: string; meta: string; role: Role; active: boolean };
-const USERS: U[] = [
-  { name: 'Aarav Mehta', meta: 'Class 11-A · Roll 01', role: 'Students', active: true },
-  { name: 'Diya Patel', meta: 'Class 11-A · Roll 02', role: 'Students', active: true },
-  { name: 'Sara Khan', meta: 'Class 10-C · Roll 06', role: 'Students', active: false },
-  { name: 'Dr. Meera Sharma', meta: 'Physics · 3 classes', role: 'Teachers', active: true },
-  { name: 'Mr. Anil Kapoor', meta: 'Mathematics · 2 classes', role: 'Teachers', active: true },
-  { name: 'Rajesh Sharma', meta: "Arjun's parent", role: 'Parents', active: true },
-];
+type Tab = 'Students' | 'Teachers' | 'Parents';
+const ROLES: Tab[] = ['Students', 'Teachers', 'Parents'];
+const ROLE_PARAM: Record<Tab, AdminUserRole> = { Students: 'student', Teachers: 'teacher', Parents: 'parent' };
 
 const ini = (n: string) => n.replace(/^(Dr\.|Mr\.|Mrs\.|Ms\.)\s*/, '').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
 
 export const AdminUsersScreen: React.FC<{ navigation: any }> = () => {
-  const [role, setRole] = useState<Role>('Students');
-  const list = USERS.filter(u => u.role === role);
+  const [role, setRole] = useState<Tab>('Students');
+  const page = useApi(signal => AdminApi.users({ role: ROLE_PARAM[role], per_page: 100 }, signal), [role]);
+
+  const list: ApiAdminUser[] = page.data?.users ?? [];
+  const total = page.data?.meta?.total ?? list.length;
+  const userMeta = (u: ApiAdminUser) =>
+    [u.role === 'student' && u.grade ? `Grade ${u.grade}` : null, u.email ?? u.phone].filter(Boolean).join(' · ') || '—';
 
   return (
     <View style={styles.container}>
@@ -46,7 +45,7 @@ export const AdminUsersScreen: React.FC<{ navigation: any }> = () => {
               <React.Fragment key={r}>
                 {i > 0 && <View style={styles.statSep} />}
                 <PressableScale style={styles.heroStat} onPress={() => setRole(r)}>
-                  <AnimatedCounter value={COUNTS[r]} style={[styles.heroStatVal, role === r && { color: Colors.primary }]} />
+                  <AnimatedCounter value={role === r ? String(total) : '—'} style={[styles.heroStatVal, role === r && { color: Colors.primary }]} />
                   <Text style={styles.heroStatLbl}>{r}</Text>
                 </PressableScale>
               </React.Fragment>
@@ -55,17 +54,14 @@ export const AdminUsersScreen: React.FC<{ navigation: any }> = () => {
         </SafeAreaView>
       </LinearGradient>
 
-      <ScrollView style={styles.sheet} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.sheet}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={page.refreshing} onRefresh={page.refetch} tintColor={Colors.primary} />}
+      >
         <Entrance index={0}>
-          <Button label={`Add ${role.slice(0, -1).toLowerCase()}`} variant="primary" icon={<Icon name="user" size={15} color={Colors.brand} />} onPress={() => Alert.alert('Add user', `Create a new ${role.slice(0, -1).toLowerCase()} — available in v1.`)} />
-        </Entrance>
-
-        <Entrance index={1}>
-          <PressableScale style={styles.pendingCard} onPress={() => Alert.alert('Approvals', '3 teacher registrations awaiting approval.')}>
-            <View style={styles.pendingIcon}><Icon name="clock" size={16} color={Colors.warning} /></View>
-            <Text style={styles.pendingTxt}>3 approvals pending</Text>
-            <Text style={styles.chevron}>›</Text>
-          </PressableScale>
+          <Button label={`Add ${role.slice(0, -1).toLowerCase()}`} variant="primary" icon={<Icon name="user" size={15} color={Colors.brand} />} onPress={() => Alert.alert('Add user', `Create a new ${role.slice(0, -1).toLowerCase()} — coming soon.`)} />
         </Entrance>
 
         <Entrance index={2}>
@@ -76,20 +72,32 @@ export const AdminUsersScreen: React.FC<{ navigation: any }> = () => {
         </Entrance>
 
         <Entrance index={3}><Text style={styles.sectionTitle}>{role}</Text></Entrance>
-        {list.map((u, i) => (
-          <Entrance key={u.name} index={4 + i}>
-            <PressableScale style={styles.userRow}>
-              <View style={styles.userAvatar}><Text style={styles.userInitials}>{ini(u.name)}</Text></View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.userName}>{u.name}</Text>
-                <Text style={styles.userMeta}>{u.meta}</Text>
-              </View>
-              <View style={[styles.statusPill, { backgroundColor: u.active ? Colors.successLight : Colors.bg2 }]}>
-                <Text style={[styles.statusTxt, { color: u.active ? Colors.success : Colors.text2 }]}>{u.active ? 'Active' : 'Inactive'}</Text>
-              </View>
-            </PressableScale>
-          </Entrance>
-        ))}
+
+        {page.loading && !page.data ? (
+          <LoadingState />
+        ) : page.error && !page.data ? (
+          <ErrorState message={page.error} onRetry={page.refetch} />
+        ) : list.length === 0 ? (
+          <EmptyState icon="user" title={`No ${role.toLowerCase()} yet`} sub="Users you add will appear here." />
+        ) : (
+          list.map((u, i) => {
+            const active = u.status === 'active';
+            return (
+              <Entrance key={u.id} index={4 + i}>
+                <PressableScale style={styles.userRow}>
+                  <View style={styles.userAvatar}><Text style={styles.userInitials}>{ini(u.name)}</Text></View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.userName}>{u.name}</Text>
+                    <Text style={styles.userMeta} numberOfLines={1}>{userMeta(u)}</Text>
+                  </View>
+                  <View style={[styles.statusPill, { backgroundColor: active ? Colors.successLight : Colors.bg2 }]}>
+                    <Text style={[styles.statusTxt, { color: active ? Colors.success : Colors.text2 }]}>{active ? 'Active' : 'Inactive'}</Text>
+                  </View>
+                </PressableScale>
+              </Entrance>
+            );
+          })
+        )}
       </ScrollView>
     </View>
   );

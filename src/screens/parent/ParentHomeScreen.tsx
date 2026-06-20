@@ -7,8 +7,8 @@
  * on, numbers count up, progress bars and the weekly-activity chart grow from zero,
  * cards stagger in, and tappable tiles spring on press.
  */
-import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, StatusBar, TouchableOpacity, Animated, Easing } from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet, ScrollView, StatusBar, TouchableOpacity, RefreshControl } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Radius, Shadow } from '../../theme';
@@ -16,42 +16,13 @@ import { ProgressBar } from '../../components/common/ProgressBar';
 import { CircularProgress } from '../../components/common/CircularProgress';
 import { AIBubble } from '../../components/common/AIBubble';
 import { Icon, IconName } from '../../components/common/Icon';
-import { Entrance, PressableScale, AnimatedCounter, Pulse, Shimmer } from '../../components/common/anim';
+import { LoadingState, ErrorState, EmptyState } from '../../components/common/ScreenStates';
+import { Entrance, PressableScale, AnimatedCounter, Shimmer } from '../../components/common/anim';
 import { GlowBlob } from '../../components/illustrations/OnboardingArt';
+import { useApi } from '../../hooks/useApi';
+import { ParentApi, type ParentChildSummary } from '../../api';
 import { useAuth } from '../../context/AuthContext';
 import { initials } from '../../utils/ui';
-
-// ── Mock child snapshot (parent endpoints land in v1; static for now) ──────────
-const CHILD = {
-  name: 'Arjun Sharma',
-  meta: 'Class 11-A · Delhi Public School',
-  avgScore: 72,
-  streak: 14,
-  attendance: 92,
-  lessonsWeek: 18,
-  quizzesWeek: 5,
-  rank: 4,
-};
-
-const SUBJECTS: { icon: IconName; name: string; pct: number; trend: number; variant: 'primary' | 'success' | 'warning' | 'teal' }[] = [
-  { icon: 'calculator', name: 'Mathematics', pct: 78, trend: 8, variant: 'success' },
-  { icon: 'book', name: 'English', pct: 91, trend: 3, variant: 'teal' },
-  { icon: 'flask', name: 'Chemistry', pct: 62, trend: -5, variant: 'warning' },
-  { icon: 'microscope', name: 'Physics', pct: 55, trend: -3, variant: 'warning' },
-];
-
-// Minutes studied per day this week (Mon–Sun); last entry is "today".
-const WEEK = [40, 65, 30, 80, 55, 90, 48];
-const WEEK_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-
-const ACTIONS: { icon: IconName; label: string; tint: string }[] = [
-  { icon: 'chart', label: "Progress", tint: '#FDF4E8' },
-  { icon: 'calendar', label: 'Attendance', tint: '#EDFAF4' },
-  { icon: 'clipboard', label: 'Reports', tint: '#F3E8FF' },
-  { icon: 'chat', label: 'Teacher', tint: '#EAF2FF' },
-  { icon: 'card', label: 'Fees', tint: '#FFF8ED' },
-  { icon: 'megaphone', label: 'Notices', tint: '#FEF2F2' },
-];
 
 const greeting = (): string => {
   const h = new Date().getHours();
@@ -60,9 +31,22 @@ const greeting = (): string => {
   return 'Good evening';
 };
 
-export const ParentHomeScreen: React.FC = () => {
+const ACTIONS: { icon: IconName; label: string; tint: string; route?: string }[] = [
+  { icon: 'chart', label: 'Progress', tint: '#FDF4E8', route: 'PChild' },
+  { icon: 'calendar', label: 'Attendance', tint: '#EDFAF4', route: 'PAttendance' },
+  { icon: 'clipboard', label: 'Reports', tint: '#F3E8FF', route: 'PReports' },
+  { icon: 'chat', label: 'Teacher', tint: '#EAF2FF' },
+  { icon: 'card', label: 'Fees', tint: '#FFF8ED', route: 'ParentFees' },
+  { icon: 'megaphone', label: 'Notices', tint: '#FEF2F2', route: 'ParentNotifications' },
+];
+
+export const ParentHomeScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const { user } = useAuth();
-  const parentName = user?.name ?? 'Parent';
+  const home = useApi(signal => ParentApi.home(signal), []);
+
+  const parentName = home.data?.parentName || user?.name || 'Parent';
+  const child = home.data?.child ?? null;
+  const alerts = home.data?.alerts ?? [];
 
   return (
     <View style={styles.container}>
@@ -81,34 +65,34 @@ export const ParentHomeScreen: React.FC = () => {
                 <Text style={styles.helloName} numberOfLines={1}>{parentName}</Text>
               </View>
             </View>
-            <TouchableOpacity style={styles.bellBtn} activeOpacity={0.8}>
+            <TouchableOpacity style={styles.bellBtn} activeOpacity={0.8} onPress={() => navigation.navigate('ParentNotifications')}>
               <Icon name="bell" size={18} color={Colors.primary} />
-              <View style={styles.bellDot} />
+              {alerts.length > 0 && <View style={styles.bellDot} />}
             </TouchableOpacity>
           </View>
 
           {/* Glass child-summary card with the performance ring */}
           <Entrance index={0} style={styles.heroCard}>
             <Shimmer />
-            <CircularProgress size={92} strokeWidth={9} progress={CHILD.avgScore} trackColor="rgba(245,232,208,0.14)">
+            <CircularProgress size={92} strokeWidth={9} progress={child?.avgScore ?? 0} trackColor="rgba(245,232,208,0.14)">
               <View style={styles.ringCenter}>
-                <AnimatedCounter value={`${CHILD.avgScore}%`} style={styles.ringPct} />
+                <AnimatedCounter value={`${child?.avgScore ?? 0}%`} style={styles.ringPct} />
                 <Text style={styles.ringLbl}>Avg score</Text>
               </View>
             </CircularProgress>
 
             <View style={styles.heroInfo}>
-              <Text style={styles.childName} numberOfLines={1}>{CHILD.name}</Text>
-              <Text style={styles.childMeta} numberOfLines={1}>{CHILD.meta}</Text>
+              <Text style={styles.childName} numberOfLines={1}>{child?.name ?? 'No child linked'}</Text>
+              <Text style={styles.childMeta} numberOfLines={1}>{child?.meta ?? '—'}</Text>
               <View style={styles.heroPills}>
                 <View style={styles.pill}>
-                  <Pulse><Icon name="fire" size={13} color={Colors.warning} /></Pulse>
-                  <AnimatedCounter value={CHILD.streak} style={styles.pillVal} />
-                  <Text style={styles.pillLbl}>streak</Text>
+                  <Icon name="edit" size={12} color={Colors.warning} />
+                  <AnimatedCounter value={child?.quizzesAttempted ?? 0} style={styles.pillVal} />
+                  <Text style={styles.pillLbl}>quizzes</Text>
                 </View>
                 <View style={styles.pill}>
                   <Icon name="calendar" size={12} color={Colors.success} />
-                  <AnimatedCounter value={`${CHILD.attendance}%`} style={styles.pillVal} />
+                  <AnimatedCounter value={`${child?.attendance ?? 0}%`} style={styles.pillVal} />
                   <Text style={styles.pillLbl}>present</Text>
                 </View>
               </View>
@@ -118,84 +102,81 @@ export const ParentHomeScreen: React.FC = () => {
       </LinearGradient>
 
       {/* ── Body sheet ────────────────────────────────────────────── */}
-      <ScrollView style={styles.sheet} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* AI insight */}
-        <Entrance index={0}>
-          <AIBubble
-            title="Bodhira AI · Weekly insight"
-            message={`${CHILD.name.split(' ')[0]} improved in Maths (+8%) this week but is slipping in Organic Chemistry. A short daily practice plan could help.`}
-            actions={[{ label: 'View study plan', variant: 'primary' }, { label: 'Dismiss', variant: 'gray' }]}
-          />
-        </Entrance>
-
-        {/* This-week stat row */}
-        <Entrance index={1} style={styles.statRow}>
-          <StatTile icon="book" value={CHILD.lessonsWeek} label="Lessons" tint="#FDF4E8" color={Colors.primaryDark} />
-          <StatTile icon="edit" value={CHILD.quizzesWeek} label="Quizzes" tint="#F3E8FF" color="#7C3AED" />
-          <StatTile icon="trophy" value={`#${CHILD.rank}`} label="Class rank" tint="#EDFAF4" color={Colors.success} />
-        </Entrance>
-
-        {/* Weekly activity chart */}
-        <Entrance index={2} style={styles.card}>
-          <View style={styles.cardHead}>
-            <View>
-              <Text style={styles.cardTitle}>Study activity</Text>
-              <Text style={styles.cardSub}>Minutes learned this week</Text>
-            </View>
-            <View style={styles.totalChip}>
-              <Text style={styles.totalChipTxt}>{Math.round(WEEK.reduce((a, b) => a + b, 0) / 60 * 10) / 10}h total</Text>
-            </View>
-          </View>
-          <WeeklyBars data={WEEK} labels={WEEK_LABELS} />
-        </Entrance>
-
-        {/* Subject performance */}
-        <Entrance index={3}>
-          <View style={styles.sectionHead}>
-            <Text style={styles.sectionTitle}>Subject performance</Text>
-            <TouchableOpacity><Text style={styles.sectionAction}>All</Text></TouchableOpacity>
-          </View>
-        </Entrance>
-        {SUBJECTS.map((s, i) => {
-          const up = s.trend >= 0;
-          return (
-            <Entrance key={s.name} index={4 + i}>
-              <PressableScale style={styles.subjectCard}>
-                <View style={styles.subjectIcon}><Icon name={s.icon} size={20} color={Colors.primaryDark} /></View>
-                <View style={styles.subjectBody}>
-                  <View style={styles.subjectTop}>
-                    <Text style={styles.subjectName}>{s.name}</Text>
-                    <View style={[styles.trendChip, { backgroundColor: up ? Colors.successLight : Colors.dangerLight }]}>
-                      <Text style={[styles.trendTxt, { color: up ? Colors.success : Colors.danger }]}>
-                        {up ? '▲' : '▼'} {Math.abs(s.trend)}%
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={styles.subjectBarRow}>
-                    <ProgressBar value={s.pct} variant={s.variant} height={6} style={styles.subjectTrack} />
-                    <Text style={styles.subjectPct}>{s.pct}%</Text>
-                  </View>
-                </View>
-              </PressableScale>
+      {home.loading && !home.data ? (
+        <View style={styles.sheet}><LoadingState /></View>
+      ) : home.error && !home.data ? (
+        <View style={styles.sheet}><ErrorState message={home.error} onRetry={home.refetch} /></View>
+      ) : (
+        <ScrollView
+          style={styles.sheet}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={home.refreshing} onRefresh={home.refetch} tintColor={Colors.primary} />}
+        >
+          {/* Alerts from the backend */}
+          {alerts.length > 0 && alerts.map((a, i) => (
+            <Entrance key={i} index={i}>
+              <AIBubble
+                title={`Alert · ${a.child}`}
+                message={a.message}
+              />
             </Entrance>
-          );
-        })}
-
-        {/* Quick actions */}
-        <Entrance index={8}>
-          <Text style={[styles.sectionTitle, { marginTop: 4 }]}>Quick actions</Text>
-        </Entrance>
-        <Entrance index={9} style={styles.actionsGrid}>
-          {ACTIONS.map((a, i) => (
-            <PressableScale key={a.label} style={styles.actionTile}>
-              <View style={[styles.actionIcon, { backgroundColor: a.tint }]}>
-                <Icon name={a.icon} size={22} color={Colors.primaryDark} />
-              </View>
-              <Text style={styles.actionLabel}>{a.label}</Text>
-            </PressableScale>
           ))}
-        </Entrance>
-      </ScrollView>
+
+          {/* This-week stat row (from child stats) */}
+          <Entrance index={1} style={styles.statRow}>
+            <StatTile icon="book" value={child?.lessonsCompleted ?? 0} label="Lessons done" tint="#FDF4E8" color={Colors.primaryDark} />
+            <StatTile icon="edit" value={child?.quizzesAttempted ?? 0} label="Quizzes" tint="#F3E8FF" color="#7C3AED" />
+            <StatTile icon="clipboard" value={child?.pendingAssignments ?? 0} label="Pending" tint="#EDFAF4" color={Colors.success} />
+          </Entrance>
+
+          {/* Lessons progress */}
+          {child && (
+            <Entrance index={2} style={styles.card}>
+              <View style={styles.cardHead}>
+                <View>
+                  <Text style={styles.cardTitle}>Lessons progress</Text>
+                  <Text style={styles.cardSub}>{child.lessonsCompleted} of {child.lessonsStarted} started lessons completed</Text>
+                </View>
+              </View>
+              <View style={styles.subjectBarRow}>
+                <ProgressBar
+                  value={child.lessonsStarted > 0 ? Math.round((child.lessonsCompleted / child.lessonsStarted) * 100) : 0}
+                  variant="primary"
+                  height={8}
+                  style={styles.subjectTrack}
+                />
+                <Text style={styles.subjectPct}>
+                  {child.lessonsStarted > 0 ? Math.round((child.lessonsCompleted / child.lessonsStarted) * 100) : 0}%
+                </Text>
+              </View>
+            </Entrance>
+          )}
+
+          {!child && (
+            <EmptyState icon="child" title="No child linked" sub="Once your child is linked, their dashboard appears here." />
+          )}
+
+          {/* Quick actions */}
+          <Entrance index={3}>
+            <Text style={[styles.sectionTitle, { marginTop: 4 }]}>Quick actions</Text>
+          </Entrance>
+          <Entrance index={4} style={styles.actionsGrid}>
+            {ACTIONS.map(a => (
+              <PressableScale
+                key={a.label}
+                style={styles.actionTile}
+                onPress={() => { if (a.route) navigation.navigate(a.route); }}
+              >
+                <View style={[styles.actionIcon, { backgroundColor: a.tint }]}>
+                  <Icon name={a.icon} size={22} color={Colors.primaryDark} />
+                </View>
+                <Text style={styles.actionLabel}>{a.label}</Text>
+              </PressableScale>
+            ))}
+          </Entrance>
+        </ScrollView>
+      )}
     </View>
   );
 };
@@ -211,36 +192,6 @@ const StatTile: React.FC<{ icon: IconName; value: string | number; label: string
     <Text style={styles.statLbl}>{label}</Text>
   </View>
 );
-
-/** Animated weekly bar chart — each bar grows from zero, staggered. */
-const WeeklyBars: React.FC<{ data: number[]; labels: string[] }> = ({ data, labels }) => {
-  const max = Math.max(...data, 1);
-  return (
-    <View style={styles.weekRow}>
-      {data.map((v, i) => (
-        <WeekBar key={i} pct={v / max} label={labels[i]} delay={i * 70} today={i === data.length - 1} />
-      ))}
-    </View>
-  );
-};
-
-const WeekBar: React.FC<{ pct: number; label: string; delay: number; today: boolean }> = ({ pct, label, delay, today }) => {
-  const h = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    const a = Animated.timing(h, { toValue: pct, duration: 700, delay, easing: Easing.out(Easing.cubic), useNativeDriver: false });
-    a.start();
-    return () => a.stop();
-  }, [h, pct, delay]);
-  const height = h.interpolate({ inputRange: [0, 1], outputRange: ['8%', '100%'] });
-  return (
-    <View style={styles.weekCol}>
-      <View style={styles.weekTrack}>
-        <Animated.View style={[styles.weekFill, { height }, today && styles.weekFillToday]} />
-      </View>
-      <Text style={[styles.weekLabel, today && styles.weekLabelToday]}>{label}</Text>
-    </View>
-  );
-};
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#1A0A0C' },
@@ -290,34 +241,14 @@ const styles = StyleSheet.create({
   cardHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
   cardTitle: { fontSize: 14.5, fontWeight: '800', color: Colors.text },
   cardSub: { fontSize: 11, color: Colors.text2, marginTop: 2 },
-  totalChip: { backgroundColor: Colors.primaryLight, paddingHorizontal: 10, paddingVertical: 5, borderRadius: Radius.full },
-  totalChipTxt: { fontSize: 11, fontWeight: '800', color: Colors.primaryDark },
-
-  // Weekly bars
-  weekRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', height: 96 },
-  weekCol: { flex: 1, alignItems: 'center', gap: 8 },
-  weekTrack: { width: 14, height: 76, backgroundColor: Colors.bg2, borderRadius: Radius.full, overflow: 'hidden', justifyContent: 'flex-end' },
-  weekFill: { width: '100%', borderRadius: Radius.full, backgroundColor: Colors.primary + '99' },
-  weekFillToday: { backgroundColor: Colors.primary },
-  weekLabel: { fontSize: 10, fontWeight: '700', color: Colors.text3 },
-  weekLabelToday: { color: Colors.primaryDark },
 
   // Sections
-  sectionHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   sectionTitle: { fontSize: 15, fontWeight: '800', color: Colors.text },
-  sectionAction: { fontSize: 12, fontWeight: '700', color: Colors.primaryDark },
 
-  // Subject cards
-  subjectCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border2, padding: 12, ...Shadow.sm },
-  subjectIcon: { width: 44, height: 44, borderRadius: 13, backgroundColor: Colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
-  subjectBody: { flex: 1, gap: 8 },
-  subjectTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  subjectName: { fontSize: 13.5, fontWeight: '800', color: Colors.text },
-  trendChip: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: Radius.full },
-  trendTxt: { fontSize: 10, fontWeight: '800' },
+  // Subject bar
   subjectBarRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  subjectTrack: { flex: 1, height: 6, borderRadius: 3 },
-  subjectPct: { fontSize: 12, fontWeight: '800', color: Colors.text2, width: 34, textAlign: 'right' },
+  subjectTrack: { flex: 1, height: 8, borderRadius: 4 },
+  subjectPct: { fontSize: 12, fontWeight: '800', color: Colors.text2, width: 40, textAlign: 'right' },
 
   // Quick actions
   actionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },

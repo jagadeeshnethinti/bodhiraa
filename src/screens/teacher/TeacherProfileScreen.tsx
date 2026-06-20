@@ -9,23 +9,26 @@ import LinearGradient from 'react-native-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Radius, Shadow } from '../../theme';
 import { Button } from '../../components/common/Button';
+import { LoadingState, ErrorState, EmptyState } from '../../components/common/ScreenStates';
 import { Entrance, PressableScale } from '../../components/common/anim';
 import { GlowBlob } from '../../components/illustrations/OnboardingArt';
 import { Icon, IconName } from '../../components/common/Icon';
 import { ConfirmDialog } from '../../components/common/PremiumModals';
+import { useApi } from '../../hooks/useApi';
+import { TeacherApi } from '../../api';
 import { useAuth } from '../../context/AuthContext';
 import { initials } from '../../utils/ui';
 import { Env } from '../../config/env';
 
-const CLASSES = [
-  { name: 'Class 11-A · Physics', students: 42 },
-  { name: 'Class 12-B · Chemistry', students: 38 },
-  { name: 'Class 10-C · Mathematics', students: 45 },
-];
-
 export const TeacherProfileScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const { user, logout } = useAuth();
-  const name = user?.name ?? 'Dr. Meera Sharma';
+  const name = user?.name ?? 'Teacher';
+  const roleLabel = user?.role_label ?? 'Teacher';
+  const schoolName = user?.school?.name ?? null;
+
+  const classesReq = useApi(signal => TeacherApi.classes(signal), []);
+  const classes = classesReq.data ?? [];
+  const totalStudents = classes.reduce((sum, c) => sum + c.students, 0);
 
   const [logoutOpen, setLogoutOpen] = useState(false);
 
@@ -47,11 +50,11 @@ export const TeacherProfileScreen: React.FC<{ navigation: any }> = ({ navigation
               <View style={styles.editDot}><Icon name="edit" size={11} color={Colors.brand} /></View>
             </TouchableOpacity>
             <Text style={styles.name}>{name}</Text>
-            <Text style={styles.subtitle}>Physics Teacher · Delhi Public School</Text>
+            <Text style={styles.subtitle}>{schoolName ? `${roleLabel} · ${schoolName}` : roleLabel}</Text>
             <View style={styles.chipRow}>
-              <View style={styles.chip}><Icon name="library" size={11} color={Colors.primary} /><Text style={styles.chipTxt}>3 classes</Text></View>
-              <View style={styles.chip}><Icon name="group" size={11} color={Colors.primary} /><Text style={styles.chipTxt}>125 students</Text></View>
-              <View style={styles.chip}><Icon name="star" size={11} color={Colors.primary} /><Text style={styles.chipTxt}>Since 2019</Text></View>
+              <View style={styles.chip}><Icon name="library" size={11} color={Colors.primary} /><Text style={styles.chipTxt}>{classes.length} {classes.length === 1 ? 'class' : 'classes'}</Text></View>
+              <View style={styles.chip}><Icon name="group" size={11} color={Colors.primary} /><Text style={styles.chipTxt}>{totalStudents} students</Text></View>
+              {user?.email ? <View style={styles.chip}><Icon name="user" size={11} color={Colors.primary} /><Text style={styles.chipTxt} numberOfLines={1}>{user.email}</Text></View> : null}
             </View>
           </Entrance>
         </SafeAreaView>
@@ -65,16 +68,24 @@ export const TeacherProfileScreen: React.FC<{ navigation: any }> = ({ navigation
         {/* Classes */}
         <Entrance index={1}><Text style={styles.sectionTitle}>Classes you teach</Text></Entrance>
         <Entrance index={2} style={{ gap: 8 }}>
-          {CLASSES.map(c => (
-            <PressableScale key={c.name} style={styles.classCard} onPress={() => Alert.alert(c.name, `${c.students} students. Full class management arrives in v1.`)}>
-              <View style={styles.classIcon}><Icon name="library" size={18} color={Colors.primaryDark} /></View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.className}>{c.name}</Text>
-                <Text style={styles.classMeta}>{c.students} students</Text>
-              </View>
-              <Text style={styles.chevron}>›</Text>
-            </PressableScale>
-          ))}
+          {classesReq.loading && !classesReq.data ? (
+            <LoadingState />
+          ) : classesReq.error && !classesReq.data ? (
+            <ErrorState message={classesReq.error} onRetry={classesReq.refetch} />
+          ) : classes.length === 0 ? (
+            <EmptyState icon="library" title="No classes yet" sub="Classes assigned to you will appear here." />
+          ) : (
+            classes.map(c => (
+              <PressableScale key={c.id} style={styles.classCard} onPress={() => Alert.alert(c.name, `${c.students} students. Full class management arrives in v1.`)}>
+                <View style={styles.classIcon}><Icon name="library" size={18} color={Colors.primaryDark} /></View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.className}>{c.name}</Text>
+                  <Text style={styles.classMeta}>{c.students} students</Text>
+                </View>
+                <Text style={styles.chevron}>›</Text>
+              </PressableScale>
+            ))
+          )}
         </Entrance>
 
         {/* Account */}

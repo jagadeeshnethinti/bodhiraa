@@ -11,5 +11,6 @@ export type { NotificationPage } from './endpoints/notifications';
 export { StudentApi } from './endpoints/student';
 export { TeacherApi } from './endpoints/teacher';
 export { ParentApi } from './endpoints/parent';
+export { AdminApi } from './endpoints/admin';
 
 export * from './types';

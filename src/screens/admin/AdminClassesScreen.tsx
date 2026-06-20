@@ -1,34 +1,33 @@
 /**
  * Admin · Classes — every class in the school with its class teacher, headcount
- * and average. Grade filter chips + add-class CTA. Static mock for now.
+ * and subject count. Grade filter chips + add-class CTA. Wired to GET /admin/classes.
  */
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, StatusBar, Alert } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, StatusBar, RefreshControl, Alert } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Radius, Shadow } from '../../theme';
 import { Button } from '../../components/common/Button';
 import { ProgressBar } from '../../components/common/ProgressBar';
+import { LoadingState, ErrorState, EmptyState } from '../../components/common/ScreenStates';
 import { Entrance, PressableScale, AnimatedCounter, Shimmer } from '../../components/common/anim';
 import { GlowBlob } from '../../components/illustrations/OnboardingArt';
 import { BoldIcon as Icon } from '../../components/common/BoldIcon';
-
-const GRADES = ['All', 'Grade 12', 'Grade 11', 'Grade 10'];
-
-type C = { name: string; teacher: string; students: number; avg: number; grade: string };
-const CLASSES: C[] = [
-  { name: 'Class 12-A', teacher: 'Dr. Meera Sharma', students: 45, avg: 82, grade: 'Grade 12' },
-  { name: 'Class 12-B', teacher: 'Mr. Anil Kapoor', students: 43, avg: 71, grade: 'Grade 12' },
-  { name: 'Class 11-A', teacher: 'Mrs. Nair', students: 42, avg: 78, grade: 'Grade 11' },
-  { name: 'Class 11-B', teacher: 'Mr. Rao', students: 42, avg: 74, grade: 'Grade 11' },
-  { name: 'Class 10-C', teacher: 'Ms. Iyer', students: 48, avg: 68, grade: 'Grade 10' },
-];
+import { useApi } from '../../hooks/useApi';
+import { AdminApi, type ApiAdminClass } from '../../api/endpoints/admin';
 
 const avgColor = (a: number) => (a >= 75 ? Colors.success : a >= 60 ? Colors.warning : Colors.danger);
 
 export const AdminClassesScreen: React.FC<{ navigation: any }> = () => {
   const [grade, setGrade] = useState('All');
-  const list = CLASSES.filter(c => grade === 'All' || c.grade === grade);
+  const classesApi = useApi(signal => AdminApi.classes(signal), []);
+  const all: ApiAdminClass[] = classesApi.data ?? [];
+
+  const grades = useMemo(() => ['All', ...Array.from(new Set(all.map(c => `Grade ${c.grade}`)))], [all]);
+  const list = all.filter(c => grade === 'All' || `Grade ${c.grade}` === grade);
+
+  const totalStudents = all.reduce((sum, c) => sum + (c.students_count ?? 0), 0);
+  const totalSubjects = all.reduce((sum, c) => sum + (c.subjects_count ?? 0), 0);
 
   return (
     <View style={styles.container}>
@@ -40,48 +39,63 @@ export const AdminClassesScreen: React.FC<{ navigation: any }> = () => {
           <Text style={styles.heading}>Classes</Text>
           <Entrance index={0} style={styles.heroCard}>
             <Shimmer />
-            <View style={styles.heroStat}><AnimatedCounter value="42" style={styles.heroStatVal} /><Text style={styles.heroStatLbl}>Classes</Text></View>
+            <View style={styles.heroStat}><AnimatedCounter value={String(all.length)} style={styles.heroStatVal} /><Text style={styles.heroStatLbl}>Classes</Text></View>
             <View style={styles.statSep} />
-            <View style={styles.heroStat}><AnimatedCounter value="1,248" style={styles.heroStatVal} /><Text style={styles.heroStatLbl}>Students</Text></View>
+            <View style={styles.heroStat}><AnimatedCounter value={totalStudents.toLocaleString('en-IN')} style={styles.heroStatVal} /><Text style={styles.heroStatLbl}>Students</Text></View>
             <View style={styles.statSep} />
-            <View style={styles.heroStat}><AnimatedCounter value="74%" style={styles.heroStatVal} /><Text style={styles.heroStatLbl}>Avg score</Text></View>
+            <View style={styles.heroStat}><AnimatedCounter value={String(totalSubjects)} style={styles.heroStatVal} /><Text style={styles.heroStatLbl}>Subjects</Text></View>
           </Entrance>
         </SafeAreaView>
       </LinearGradient>
 
-      <ScrollView style={styles.sheet} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.sheet}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={classesApi.refreshing} onRefresh={classesApi.refetch} tintColor={Colors.primary} />}
+      >
         <Entrance index={0}>
-          <Button label="Add class" variant="primary" icon={<Icon name="school" size={15} color={Colors.brand} />} onPress={() => Alert.alert('Add class', 'Create a new class — available in v1.')} />
+          <Button label="Add class" variant="primary" icon={<Icon name="school" size={15} color={Colors.brand} />} onPress={() => Alert.alert('Add class', 'Create a new class — coming soon.')} />
         </Entrance>
 
-        <Entrance index={1}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-            {GRADES.map(g => {
-              const active = g === grade;
-              return (
-                <PressableScale key={g} onPress={() => setGrade(g)} style={[styles.filterChip, active && styles.filterChipActive]}>
-                  <Text style={[styles.filterTxt, active && styles.filterTxtActive]}>{g}</Text>
-                </PressableScale>
-              );
-            })}
-          </ScrollView>
-        </Entrance>
-
-        {list.map((c, i) => (
-          <Entrance key={c.name} index={2 + i}>
-            <PressableScale style={styles.classCard}>
-              <View style={styles.classIcon}><Icon name="library" size={20} color={Colors.primaryDark} /></View>
-              <View style={{ flex: 1, gap: 6 }}>
-                <View style={styles.classTop}>
-                  <Text style={styles.className}>{c.name}</Text>
-                  <Text style={[styles.classPct, { color: avgColor(c.avg) }]}>{c.avg}%</Text>
-                </View>
-                <ProgressBar value={c.avg} color={avgColor(c.avg)} height={6} />
-                <Text style={styles.classMeta}>{c.teacher} · {c.students} students</Text>
-              </View>
-            </PressableScale>
+        {grades.length > 1 && (
+          <Entrance index={1}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+              {grades.map(g => {
+                const active = g === grade;
+                return (
+                  <PressableScale key={g} onPress={() => setGrade(g)} style={[styles.filterChip, active && styles.filterChipActive]}>
+                    <Text style={[styles.filterTxt, active && styles.filterTxtActive]}>{g}</Text>
+                  </PressableScale>
+                );
+              })}
+            </ScrollView>
           </Entrance>
-        ))}
+        )}
+
+        {classesApi.loading && !classesApi.data ? (
+          <LoadingState />
+        ) : classesApi.error && !classesApi.data ? (
+          <ErrorState message={classesApi.error} onRetry={classesApi.refetch} />
+        ) : list.length === 0 ? (
+          <EmptyState icon="school" title="No classes yet" sub="Classes you create will appear here." />
+        ) : (
+          list.map((c, i) => (
+            <Entrance key={c.id} index={2 + i}>
+              <PressableScale style={styles.classCard}>
+                <View style={styles.classIcon}><Icon name="library" size={20} color={Colors.primaryDark} /></View>
+                <View style={{ flex: 1, gap: 6 }}>
+                  <View style={styles.classTop}>
+                    <Text style={styles.className}>{c.label}</Text>
+                    <Text style={styles.classCountTxt}>{c.students_count} students</Text>
+                  </View>
+                  <ProgressBar value={c.subjects_count > 0 ? Math.min(c.subjects_count * 20, 100) : 0} color={avgColor(70)} height={6} />
+                  <Text style={styles.classMeta}>{c.class_teacher ?? 'No class teacher'} · {c.subjects_count} subjects{c.academic_year ? ` · ${c.academic_year}` : ''}</Text>
+                </View>
+              </PressableScale>
+            </Entrance>
+          ))
+        )}
       </ScrollView>
     </View>
   );
@@ -111,5 +125,6 @@ const styles = StyleSheet.create({
   classTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   className: { fontSize: 13.5, fontWeight: '800', color: Colors.text },
   classPct: { fontSize: 14, fontWeight: '900' },
+  classCountTxt: { fontSize: 12, fontWeight: '800', color: Colors.text2 },
   classMeta: { fontSize: 11, color: Colors.text2 },
 });

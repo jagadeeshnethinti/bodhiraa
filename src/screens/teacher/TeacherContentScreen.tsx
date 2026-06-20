@@ -1,38 +1,76 @@
 /**
- * Teacher · Content — the teacher's library of lessons, quizzes and materials.
- * Hero with library stats, filter chips, a "new content" CTA and content cards
- * with type/status. Static mock for now.
+ * Teacher · Content — the teacher's library of assignments and quizzes. Hero with
+ * library stats, filter chips, a "new content" CTA and content cards with
+ * type/status. Wired to GET /teacher/assignments and GET /teacher/quizzes via
+ * TeacherApi.assignments() / TeacherApi.quizzes().
  */
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, StatusBar, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, StatusBar, Alert, RefreshControl } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Radius, Shadow } from '../../theme';
 import { Button } from '../../components/common/Button';
+import { LoadingState, ErrorState, EmptyState } from '../../components/common/ScreenStates';
 import { Entrance, PressableScale, AnimatedCounter, Shimmer } from '../../components/common/anim';
 import { GlowBlob } from '../../components/illustrations/OnboardingArt';
 import { Icon, IconName } from '../../components/common/Icon';
+import { useApi } from '../../hooks/useApi';
+import { TeacherApi } from '../../api';
 
-type Type = 'Lesson' | 'Quiz' | 'Material';
-const FILTERS: ('All' | Type)[] = ['All', 'Lesson', 'Quiz', 'Material'];
+type Type = 'Assignment' | 'Quiz';
+const FILTERS: ('All' | Type)[] = ['All', 'Assignment', 'Quiz'];
 
-const HERO: { value: string; label: string }[] = [
-  { value: '48', label: 'Lessons' },
-  { value: '23', label: 'Quizzes' },
-  { value: '31', label: 'Materials' },
-];
-
-const CONTENT: { type: Type; icon: IconName; title: string; meta: string; published: boolean; tint: string; color: string }[] = [
-  { type: 'Lesson', icon: 'video', title: 'Wave Optics — Interference', meta: 'Physics 11-A · 18 min', published: true, tint: '#EAF2FF', color: '#2F4DA0' },
-  { type: 'Quiz', icon: 'edit', title: 'Thermodynamics — Unit Test', meta: '20 questions · 45 min', published: true, tint: '#F3E8FF', color: '#7C3AED' },
-  { type: 'Material', icon: 'pdf', title: 'Organic Chemistry Notes.pdf', meta: 'Chemistry 12-B · 2.4 MB', published: true, tint: '#FEF2F2', color: Colors.danger },
-  { type: 'Lesson', icon: 'video', title: 'Quadratic Equations — Basics', meta: 'Maths 10-C · 22 min', published: false, tint: '#EAF2FF', color: '#2F4DA0' },
-  { type: 'Quiz', icon: 'edit', title: 'Algebra Practice Set', meta: '15 questions · Draft', published: false, tint: '#F3E8FF', color: '#7C3AED' },
-];
+/** A normalised content-library row shared by assignments and quizzes. */
+interface ContentItem {
+  key: string;
+  type: Type;
+  icon: IconName;
+  title: string;
+  meta: string;
+  published: boolean;
+  tint: string;
+  color: string;
+}
 
 export const TeacherContentScreen: React.FC<{ navigation: any }> = () => {
   const [filter, setFilter] = useState<'All' | Type>('All');
-  const list = CONTENT.filter(c => filter === 'All' || c.type === filter);
+
+  const assignmentsReq = useApi(signal => TeacherApi.assignments(signal), []);
+  const quizzesReq = useApi(signal => TeacherApi.quizzes(signal), []);
+
+  const assignments = assignmentsReq.data ?? [];
+  const quizzes = quizzesReq.data ?? [];
+
+  const loading = (assignmentsReq.loading && !assignmentsReq.data) || (quizzesReq.loading && !quizzesReq.data);
+  const error = (assignmentsReq.error && !assignmentsReq.data) || (quizzesReq.error && !quizzesReq.data);
+  const errorMsg = assignmentsReq.error ?? quizzesReq.error;
+
+  const onRefresh = () => { assignmentsReq.refetch(); quizzesReq.refetch(); };
+  const onRetry = () => { assignmentsReq.refetch(); quizzesReq.refetch(); };
+
+  const assignmentItems: ContentItem[] = assignments.map(a => ({
+    key: `a-${a.id}`,
+    type: 'Assignment',
+    icon: 'clipboard',
+    title: a.title,
+    meta: [a.className, a.subject, `${a.submissionsCount} submissions`].filter(Boolean).join(' · '),
+    published: a.published,
+    tint: '#EAF2FF',
+    color: '#2F4DA0',
+  }));
+  const quizItems: ContentItem[] = quizzes.map(q => ({
+    key: `q-${q.id}`,
+    type: 'Quiz',
+    icon: 'edit',
+    title: q.title,
+    meta: [q.subject, `${q.questionsCount} questions`, `${q.durationMin} min`].filter(Boolean).join(' · '),
+    published: q.published,
+    tint: '#F3E8FF',
+    color: '#7C3AED',
+  }));
+
+  const all = [...assignmentItems, ...quizItems];
+  const list = all.filter(c => filter === 'All' || c.type === filter);
 
   return (
     <View style={styles.container}>
@@ -44,26 +82,36 @@ export const TeacherContentScreen: React.FC<{ navigation: any }> = () => {
           <Text style={styles.heading}>Content library</Text>
           <Entrance index={0} style={styles.heroCard}>
             <Shimmer />
-            {HERO.map((h, i) => (
-              <React.Fragment key={h.label}>
-                {i > 0 && <View style={styles.statSep} />}
-                <View style={styles.heroStat}>
-                  <AnimatedCounter value={h.value} style={styles.heroStatVal} />
-                  <Text style={styles.heroStatLbl}>{h.label}</Text>
-                </View>
-              </React.Fragment>
-            ))}
+            <View style={styles.heroStat}>
+              <AnimatedCounter value={String(assignments.length)} style={styles.heroStatVal} />
+              <Text style={styles.heroStatLbl}>Assignments</Text>
+            </View>
+            <View style={styles.statSep} />
+            <View style={styles.heroStat}>
+              <AnimatedCounter value={String(quizzes.length)} style={styles.heroStatVal} />
+              <Text style={styles.heroStatLbl}>Quizzes</Text>
+            </View>
+            <View style={styles.statSep} />
+            <View style={styles.heroStat}>
+              <AnimatedCounter value={String(all.filter(c => c.published).length)} style={styles.heroStatVal} />
+              <Text style={styles.heroStatLbl}>Published</Text>
+            </View>
           </Entrance>
         </SafeAreaView>
       </LinearGradient>
 
-      <ScrollView style={styles.sheet} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.sheet}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={assignmentsReq.refreshing || quizzesReq.refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+      >
         <Entrance index={0}>
           <Button
             label="New content"
             variant="primary"
             icon={<Icon name="upload" size={16} color={Colors.brand} />}
-            onPress={() => Alert.alert('Create', 'Choose lesson, quiz or material — available in v1.')}
+            onPress={() => Alert.alert('Create', 'Choose an assignment or quiz — available in v1.')}
           />
         </Entrance>
 
@@ -80,20 +128,28 @@ export const TeacherContentScreen: React.FC<{ navigation: any }> = () => {
           </ScrollView>
         </Entrance>
 
-        {list.map((c, i) => (
-          <Entrance key={c.title} index={2 + i}>
-            <PressableScale style={styles.contentCard}>
-              <View style={[styles.contentIcon, { backgroundColor: c.tint }]}><Icon name={c.icon} size={20} color={c.color} /></View>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={styles.contentTitle} numberOfLines={1}>{c.title}</Text>
-                <Text style={styles.contentMeta} numberOfLines={1}>{c.type} · {c.meta}</Text>
-              </View>
-              <View style={[styles.statusPill, { backgroundColor: c.published ? Colors.successLight : Colors.bg2 }]}>
-                <Text style={[styles.statusTxt, { color: c.published ? Colors.success : Colors.text2 }]}>{c.published ? 'Live' : 'Draft'}</Text>
-              </View>
-            </PressableScale>
-          </Entrance>
-        ))}
+        {loading ? (
+          <LoadingState />
+        ) : error ? (
+          <ErrorState message={errorMsg} onRetry={onRetry} />
+        ) : list.length === 0 ? (
+          <EmptyState icon="folder" title="Nothing here yet" sub="Assignments and quizzes you create will appear here." />
+        ) : (
+          list.map((c, i) => (
+            <Entrance key={c.key} index={2 + i}>
+              <PressableScale style={styles.contentCard}>
+                <View style={[styles.contentIcon, { backgroundColor: c.tint }]}><Icon name={c.icon} size={20} color={c.color} /></View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.contentTitle} numberOfLines={1}>{c.title}</Text>
+                  <Text style={styles.contentMeta} numberOfLines={1}>{c.type} · {c.meta}</Text>
+                </View>
+                <View style={[styles.statusPill, { backgroundColor: c.published ? Colors.successLight : Colors.bg2 }]}>
+                  <Text style={[styles.statusTxt, { color: c.published ? Colors.success : Colors.text2 }]}>{c.published ? 'Live' : 'Draft'}</Text>
+                </View>
+              </PressableScale>
+            </Entrance>
+          ))
+        )}
       </ScrollView>
     </View>
   );

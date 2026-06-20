@@ -1,43 +1,55 @@
 /**
- * Teacher · Students — class roster with per-student performance. A hero with a
- * class selector and the class-average ring, summary tiles, and a sortable-looking
- * student list (score, trend, attendance). Static mock for now.
+ * Teacher · Students — class roster with per-student presence. A hero with a
+ * class selector and a summary ring, summary tiles, and the student list.
+ * Wired to GET /teacher/classes (selector) and GET /teacher/classes/{id}
+ * (roster + summary) via TeacherApi.classes() / TeacherApi.klass().
  */
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, StatusBar, RefreshControl } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Radius, Shadow, useTheme } from '../../theme';
 import { CircularProgress } from '../../components/common/CircularProgress';
+import { LoadingState, ErrorState, EmptyState } from '../../components/common/ScreenStates';
 import { Entrance, PressableScale, AnimatedCounter, Shimmer } from '../../components/common/anim';
 import { GlowBlob } from '../../components/illustrations/OnboardingArt';
 import { Icon, IconName } from '../../components/common/Icon';
+import { useApi } from '../../hooks/useApi';
+import { TeacherApi } from '../../api';
 
-const CLASSES = ['11-A Physics', '12-B Chemistry', '10-C Maths'];
-
-const SUMMARY: { icon: IconName; value: string; label: string; color: string; tint: string }[] = [
-  { icon: 'group', value: '42', label: 'Students', color: Colors.primaryDark, tint: '#FDF4E8' },
-  { icon: 'chart', value: '78%', label: 'Class avg', color: Colors.success, tint: '#EDFAF4' },
-  { icon: 'warning', value: '6', label: 'At risk', color: Colors.danger, tint: '#FEF2F2' },
-];
-
-// `private` learners signed in with a personal account — their performance is
-// hidden from school staff, so the roster shows a lock instead of a score.
-const STUDENTS: { name: string; roll: string; score: number; trend: number; present: boolean; private?: boolean }[] = [
-  { name: 'Aarav Mehta', roll: '11A-01', score: 94, trend: 4, present: true },
-  { name: 'Diya Patel', roll: '11A-02', score: 88, trend: 2, present: true },
-  { name: 'Kabir Singh', roll: '11A-03', score: 81, trend: -3, present: false, private: true },
-  { name: 'Ishita Rao', roll: '11A-04', score: 76, trend: 6, present: true },
-  { name: 'Rohan Verma', roll: '11A-05', score: 58, trend: -8, present: true },
-  { name: 'Sara Khan', roll: '11A-06', score: 47, trend: -2, present: false, private: true },
-];
-
-const scoreColor = (s: number) => (s >= 75 ? Colors.success : s >= 50 ? Colors.warning : Colors.danger);
 const ini = (n: string) => n.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
 
 export const TeacherStudentsScreen: React.FC<{ navigation: any }> = () => {
-  const [cls, setCls] = useState(0);
   const theme = useTheme();
+  const [clsIdx, setClsIdx] = useState(0);
+
+  const classesReq = useApi(signal => TeacherApi.classes(signal), []);
+  const classes = classesReq.data ?? [];
+  const selected = classes[clsIdx] ?? null;
+  const selectedId = selected?.id ?? null;
+
+  // Roster + summary for the chosen class. Re-fetches when the selection changes.
+  const detail = useApi(
+    signal => {
+      if (selectedId == null) return Promise.resolve(null);
+      return TeacherApi.klass(selectedId, signal);
+    },
+    [selectedId],
+  );
+
+  const d = detail.data;
+  const students = d?.students ?? [];
+  const attendancePct = d?.summary.attendancePercent ?? 0;
+  const presentCount = students.filter(s => s.present === true).length;
+
+  const summary: { icon: IconName; value: string; label: string; color: string; tint: string }[] = [
+    { icon: 'group', value: String(d?.summary.students ?? selected?.students ?? 0), label: 'Students', color: Colors.primaryDark, tint: '#FDF4E8' },
+    { icon: 'chart', value: `${attendancePct}%`, label: 'Attendance', color: Colors.success, tint: '#EDFAF4' },
+    { icon: 'library', value: String(d?.summary.subjects ?? 0), label: 'Subjects', color: '#2F4DA0', tint: '#EAF2FF' },
+  ];
+
+  const onRefresh = () => { classesReq.refetch(); detail.refetch(); };
+
   return (
     <View style={[styles.container, { backgroundColor: theme.heroSolid }]}>
       <StatusBar barStyle="light-content" backgroundColor={theme.heroSolid} />
@@ -47,11 +59,11 @@ export const TeacherStudentsScreen: React.FC<{ navigation: any }> = () => {
         <SafeAreaView edges={['top']}>
           <Text style={styles.heading}>Students</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-            {CLASSES.map((c, i) => {
-              const active = i === cls;
+            {classes.map((c, i) => {
+              const active = i === clsIdx;
               return (
-                <PressableScale key={c} onPress={() => setCls(i)} style={[styles.classChip, active && { backgroundColor: theme.accent, borderColor: theme.accent }]}>
-                  <Text style={[styles.classChipTxt, active && { color: theme.onAccent }]}>{c}</Text>
+                <PressableScale key={c.id} onPress={() => setClsIdx(i)} style={[styles.classChip, active && { backgroundColor: theme.accent, borderColor: theme.accent }]}>
+                  <Text style={[styles.classChipTxt, active && { color: theme.onAccent }]}>{c.name}</Text>
                 </PressableScale>
               );
             })}
@@ -59,79 +71,85 @@ export const TeacherStudentsScreen: React.FC<{ navigation: any }> = () => {
 
           <Entrance index={0} style={styles.heroCard}>
             <Shimmer />
-            <CircularProgress size={84} strokeWidth={8} progress={78} trackColor="rgba(245,232,208,0.14)">
+            <CircularProgress size={84} strokeWidth={8} progress={attendancePct} trackColor="rgba(245,232,208,0.14)">
               <View style={styles.ringCenter}>
-                <AnimatedCounter value="78%" style={styles.ringPct} />
-                <Text style={styles.ringLbl}>Avg</Text>
+                <AnimatedCounter value={`${attendancePct}%`} style={styles.ringPct} />
+                <Text style={styles.ringLbl}>Present</Text>
               </View>
             </CircularProgress>
             <View style={styles.heroInfo}>
-              <Text style={styles.heroInfoTitle}>{CLASSES[cls]}</Text>
-              <Text style={styles.heroInfoSub}>42 students · 36 present today. Top scorer: Aarav Mehta (94%).</Text>
+              <Text style={styles.heroInfoTitle}>{selected?.name ?? 'Your classes'}</Text>
+              <Text style={styles.heroInfoSub}>
+                {students.length > 0
+                  ? `${students.length} students · ${presentCount} marked present.`
+                  : 'Select a class to view its roster.'}
+              </Text>
             </View>
           </Entrance>
         </SafeAreaView>
       </LinearGradient>
 
-      <ScrollView style={styles.sheet} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Entrance index={0} style={styles.summaryGrid}>
-          {SUMMARY.map(s => (
-            <View key={s.label} style={styles.summaryTile}>
-              <View style={[styles.summaryIcon, { backgroundColor: s.tint }]}><Icon name={s.icon} size={15} color={s.color} /></View>
-              <Text style={[styles.summaryVal, { color: s.color }]}>{s.value}</Text>
-              <Text style={styles.summaryLbl}>{s.label}</Text>
-            </View>
-          ))}
-        </Entrance>
-
-        <Entrance index={1}>
-          <View style={styles.searchBar}>
-            <Icon name="search" size={16} color={Colors.text3} />
-            <Text style={styles.searchPlaceholder}>Search students…</Text>
-          </View>
-        </Entrance>
-
-        <Entrance index={2} style={styles.listHeaderRow}>
-          <Text style={styles.sectionTitle}>Roster</Text>
-          <View style={styles.sortChip}><Icon name="chart" size={12} color={Colors.primaryDark} /><Text style={styles.sortTxt}>By score</Text></View>
-        </Entrance>
-
-        {STUDENTS.map((s, i) => {
-          const up = s.trend >= 0;
-          return (
-            <Entrance key={s.roll} index={3 + i}>
-              <PressableScale style={styles.studentRow}>
-                <View style={styles.studentAvatar}><Text style={styles.studentInitials}>{ini(s.name)}</Text></View>
-                <View style={{ flex: 1 }}>
-                  <View style={styles.studentTop}>
-                    <Text style={styles.studentName}>{s.name}</Text>
-                    {s.private && (
-                      <View style={styles.privateBadge}>
-                        <Icon name="lock" size={9} color={Colors.text2} />
-                        <Text style={styles.privateBadgeTxt}>Private</Text>
-                      </View>
-                    )}
-                    <View style={[styles.presentDot, { backgroundColor: s.present ? Colors.success : Colors.danger }]} />
-                  </View>
-                  <Text style={styles.studentRoll}>
-                    {s.roll} · {s.private ? 'Performance hidden' : s.present ? 'Present' : 'Absent'}
-                  </Text>
+      <ScrollView
+        style={styles.sheet}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={classesReq.refreshing || detail.refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+      >
+        {classesReq.loading && !classesReq.data ? (
+          <LoadingState />
+        ) : classesReq.error && !classesReq.data ? (
+          <ErrorState message={classesReq.error} onRetry={classesReq.refetch} />
+        ) : classes.length === 0 ? (
+          <EmptyState icon="library" title="No classes yet" sub="Classes assigned to you will appear here." />
+        ) : (
+          <>
+            <Entrance index={0} style={styles.summaryGrid}>
+              {summary.map(s => (
+                <View key={s.label} style={styles.summaryTile}>
+                  <View style={[styles.summaryIcon, { backgroundColor: s.tint }]}><Icon name={s.icon} size={15} color={s.color} /></View>
+                  <Text style={[styles.summaryVal, { color: s.color }]}>{s.value}</Text>
+                  <Text style={styles.summaryLbl}>{s.label}</Text>
                 </View>
-                {s.private ? (
-                  <View style={styles.scoreCol}>
-                    <Icon name="lock" size={16} color={Colors.text3} />
-                    <Text style={styles.privateScoreTxt}>Hidden</Text>
-                  </View>
-                ) : (
-                  <View style={styles.scoreCol}>
-                    <Text style={[styles.scoreVal, { color: scoreColor(s.score) }]}>{s.score}%</Text>
-                    <Text style={[styles.trendTxt, { color: up ? Colors.success : Colors.danger }]}>{up ? '▲' : '▼'} {Math.abs(s.trend)}</Text>
-                  </View>
-                )}
-              </PressableScale>
+              ))}
             </Entrance>
-          );
-        })}
+
+            <Entrance index={2} style={styles.listHeaderRow}>
+              <Text style={styles.sectionTitle}>Roster</Text>
+            </Entrance>
+
+            {detail.loading && !detail.data ? (
+              <LoadingState />
+            ) : detail.error && !detail.data ? (
+              <ErrorState message={detail.error} onRetry={detail.refetch} />
+            ) : students.length === 0 ? (
+              <EmptyState icon="group" title="No students" sub="This class has no enrolled students yet." />
+            ) : (
+              students.map((s, i) => (
+                <Entrance key={s.id} index={3 + i}>
+                  <PressableScale style={styles.studentRow}>
+                    <View style={styles.studentAvatar}><Text style={styles.studentInitials}>{ini(s.name)}</Text></View>
+                    <View style={{ flex: 1 }}>
+                      <View style={styles.studentTop}>
+                        <Text style={styles.studentName}>{s.name}</Text>
+                        {s.present !== null && (
+                          <View style={[styles.presentDot, { backgroundColor: s.present ? Colors.success : Colors.danger }]} />
+                        )}
+                      </View>
+                      <Text style={styles.studentRoll}>
+                        {s.roll ? `${s.roll} · ` : ''}{s.present === null ? 'Not marked' : s.present ? 'Present' : 'Absent'}
+                      </Text>
+                    </View>
+                    <View style={[styles.statusPill, { backgroundColor: s.status === 'active' ? Colors.successLight : Colors.bg2 }]}>
+                      <Text style={[styles.statusTxt, { color: s.status === 'active' ? Colors.success : Colors.text2 }]}>
+                        {s.status === 'active' ? 'Active' : 'Inactive'}
+                      </Text>
+                    </View>
+                  </PressableScale>
+                </Entrance>
+              ))
+            )}
+          </>
+        )}
       </ScrollView>
     </View>
   );
@@ -144,9 +162,7 @@ const styles = StyleSheet.create({
   heading: { fontSize: 22, fontWeight: '900', color: '#F5E8D0', letterSpacing: -0.4, paddingTop: 6 },
   chipRow: { gap: 8, paddingVertical: 14 },
   classChip: { backgroundColor: 'rgba(245,232,208,0.08)', borderWidth: 1, borderColor: 'rgba(196,149,96,0.2)', borderRadius: Radius.full, paddingHorizontal: 14, paddingVertical: 8 },
-  classChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   classChipTxt: { fontSize: 12, fontWeight: '700', color: 'rgba(245,232,208,0.8)' },
-  classChipTxtActive: { color: Colors.brand },
   heroCard: { flexDirection: 'row', alignItems: 'center', gap: 16, backgroundColor: 'rgba(245,232,208,0.07)', borderWidth: 1, borderColor: 'rgba(196,149,96,0.22)', borderRadius: Radius.xl, padding: 16, overflow: 'hidden' },
   ringCenter: { alignItems: 'center', justifyContent: 'center' },
   ringPct: { fontSize: 17, fontWeight: '900', color: '#F5E8D0', letterSpacing: -0.5 },
@@ -163,13 +179,8 @@ const styles = StyleSheet.create({
   summaryVal: { fontSize: 18, fontWeight: '900' },
   summaryLbl: { fontSize: 9.5, color: Colors.text3, fontWeight: '700' },
 
-  searchBar: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border2, paddingHorizontal: 14, paddingVertical: 12 },
-  searchPlaceholder: { fontSize: 13, color: Colors.text3 },
-
   listHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   sectionTitle: { fontSize: 15, fontWeight: '800', color: Colors.text },
-  sortChip: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: Colors.primaryLight, borderRadius: Radius.full, paddingHorizontal: 10, paddingVertical: 5 },
-  sortTxt: { fontSize: 11, fontWeight: '700', color: Colors.primaryDark },
 
   studentRow: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border2, padding: 11, ...Shadow.sm },
   studentAvatar: { width: 42, height: 42, borderRadius: 13, backgroundColor: Colors.bg2, alignItems: 'center', justifyContent: 'center' },
@@ -178,10 +189,6 @@ const styles = StyleSheet.create({
   studentName: { fontSize: 13.5, fontWeight: '700', color: Colors.text },
   presentDot: { width: 7, height: 7, borderRadius: 4 },
   studentRoll: { fontSize: 11, color: Colors.text2, marginTop: 2 },
-  scoreCol: { alignItems: 'flex-end' },
-  scoreVal: { fontSize: 15, fontWeight: '900' },
-  trendTxt: { fontSize: 10, fontWeight: '800', marginTop: 1 },
-  privateBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: Colors.bg2, borderRadius: Radius.full, paddingHorizontal: 7, paddingVertical: 2 },
-  privateBadgeTxt: { fontSize: 9, fontWeight: '800', color: Colors.text2, letterSpacing: 0.2 },
-  privateScoreTxt: { fontSize: 9.5, fontWeight: '700', color: Colors.text3, marginTop: 2 },
+  statusPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: Radius.full },
+  statusTxt: { fontSize: 10.5, fontWeight: '800' },
 });

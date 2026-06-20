@@ -26,8 +26,11 @@ export const Env = {
    *
    * SET THIS TO `false` TO USE THE REAL BACKEND at `apiBaseUrl` below. Nothing
    * else needs to change.
+   *
+   * Wired to the local Laravel backend in ../_bodhiraai.com (artisan serve on
+   * 127.0.0.1:8000). The Android emulator reaches it via 10.0.2.2:8000 below.
    */
-  useMock: true,
+  useMock: false,
   /** Fully-qualified API root, e.g. `http://10.0.2.2:8000/api/v1`. */
   apiBaseUrl: `${DEV_HOST}/api/v1`,
   /**

@@ -1,119 +1,149 @@
 /**
  * Admin · Analytics — school-wide insights: an overall-average ring, KPI tiles,
- * an animated enrolment trend chart, grade-wise performance bars, and top/at-risk
- * classes. Export action. Static mock for now.
+ * an animated 7-day attendance trend chart, per-class performance bars, and
+ * top/at-risk classes. Wired to GET /admin/analytics.
  */
-import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, StatusBar, Animated, Easing, Alert } from 'react-native';
+import React, { useEffect, useMemo, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, StatusBar, RefreshControl, Animated, Easing, Alert } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Radius, Shadow } from '../../theme';
 import { Button } from '../../components/common/Button';
 import { ProgressBar } from '../../components/common/ProgressBar';
 import { CircularProgress } from '../../components/common/CircularProgress';
+import { LoadingState, ErrorState } from '../../components/common/ScreenStates';
 import { Entrance, AnimatedCounter, Shimmer } from '../../components/common/anim';
 import { GlowBlob } from '../../components/illustrations/OnboardingArt';
 import { BoldIcon as Icon, BoldIconName as IconName } from '../../components/common/BoldIcon';
+import { useApi } from '../../hooks/useApi';
+import { AdminApi } from '../../api/endpoints/admin';
 
-const AVG = 74;
-const KPIS: { icon: IconName; value: string; label: string; color: string; tint: string }[] = [
-  { icon: 'attendance', value: '94%', label: 'Attendance', color: Colors.success, tint: '#EDFAF4' },
-  { icon: 'card', value: '88%', label: 'Fees paid', color: Colors.primaryDark, tint: '#FDF4E8' },
-  { icon: 'rocket', value: '+6%', label: 'vs last term', color: '#2F4DA0', tint: '#EAF2FF' },
-];
-const ENROL = [980, 1040, 1080, 1130, 1190, 1248]; // last 6 terms
-const ENROL_LABELS = ['T1', 'T2', 'T3', 'T4', 'T5', 'Now'];
-const GRADES: { name: string; pct: number; variant: 'success' | 'warning' | 'teal' }[] = [
-  { name: 'Grade 12', pct: 79, variant: 'success' },
-  { name: 'Grade 11', pct: 76, variant: 'teal' },
-  { name: 'Grade 10', pct: 68, variant: 'warning' },
-  { name: 'Grade 9', pct: 72, variant: 'teal' },
-];
+const perfVariant = (pct: number): 'success' | 'warning' | 'teal' =>
+  pct >= 75 ? 'success' : pct >= 60 ? 'teal' : 'warning';
 
-export const AdminAnalyticsScreen: React.FC<{ navigation: any }> = () => (
-  <View style={styles.container}>
-    <StatusBar barStyle="light-content" backgroundColor="#1A0A0C" />
+export const AdminAnalyticsScreen: React.FC<{ navigation: any }> = () => {
+  const analyticsApi = useApi(signal => AdminApi.analytics(signal), []);
+  const ad = analyticsApi.data;
 
-    <LinearGradient colors={['#1A0A0C', '#2A0E13', '#3D1520']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
-      <View style={styles.heroGlow} pointerEvents="none"><GlowBlob size={220} /></View>
-      <SafeAreaView edges={['top']}>
-        <Text style={styles.heading}>Analytics</Text>
-        <Entrance index={0} style={styles.heroCard}>
-          <Shimmer />
-          <CircularProgress size={104} strokeWidth={10} progress={AVG} trackColor="rgba(245,232,208,0.14)">
-            <View style={styles.ringCenter}>
-              <AnimatedCounter value={`${AVG}%`} style={styles.ringPct} />
-              <Text style={styles.ringLbl}>School avg</Text>
-            </View>
-          </CircularProgress>
-          <View style={styles.heroInfo}>
-            <Text style={styles.heroInfoTitle}>This term</Text>
-            <Text style={styles.heroInfoSub}>1,248 students across 42 classes. Performance is up 6% on last term with strong attendance.</Text>
-          </View>
-        </Entrance>
-      </SafeAreaView>
-    </LinearGradient>
+  const totals = ad?.totals;
+  const avg = totals?.avg_quiz_percent ?? 0;
+  const classes = ad?.classes ?? [];
+  const trend = ad?.attendance_trend ?? [];
 
-    <ScrollView style={styles.sheet} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <Entrance index={0}>
-        <Button label="Export report" variant="outline" icon={<Icon name="upload" size={15} color={Colors.brand} />} onPress={() => Alert.alert('Export', 'A PDF/CSV export will be available in v1.')} />
-      </Entrance>
+  const kpis: { icon: IconName; value: string; label: string; color: string; tint: string }[] = [
+    { icon: 'attendance', value: String(totals?.quiz_attempts ?? 0), label: 'Quiz attempts', color: Colors.success, tint: '#EDFAF4' },
+    { icon: 'card', value: String(totals?.lessons_completed ?? 0), label: 'Lessons done', color: Colors.primaryDark, tint: '#FDF4E8' },
+    { icon: 'rocket', value: `${avg}%`, label: 'Avg quiz', color: '#2F4DA0', tint: '#EAF2FF' },
+  ];
 
-      {/* KPIs */}
-      <Entrance index={1} style={styles.kpiGrid}>
-        {KPIS.map(k => (
-          <View key={k.label} style={styles.kpiTile}>
-            <View style={[styles.kpiIcon, { backgroundColor: k.tint }]}><Icon name={k.icon} size={15} color={k.color} /></View>
-            <Text style={[styles.kpiVal, { color: k.color }]}>{k.value}</Text>
-            <Text style={styles.kpiLbl}>{k.label}</Text>
-          </View>
-        ))}
-      </Entrance>
+  const trendMax = Math.max(1, ...trend.map(t => t.percent));
+  const { top, atRisk } = useMemo(() => {
+    if (classes.length === 0) return { top: null, atRisk: null };
+    const sorted = [...classes].sort((a, b) => b.avg_quiz_percent - a.avg_quiz_percent);
+    return { top: sorted[0], atRisk: sorted[sorted.length - 1] };
+  }, [classes]);
 
-      {/* Enrolment trend */}
-      <Entrance index={2} style={styles.card}>
-        <View style={styles.cardHead}>
-          <Text style={styles.cardTitle}>Enrolment trend</Text>
-          <View style={styles.totalChip}><Text style={styles.totalChipTxt}>+27% YoY</Text></View>
-        </View>
-        <View style={styles.barsRow}>
-          {ENROL.map((v, i) => (
-            <Bar key={i} pct={v / Math.max(...ENROL)} label={ENROL_LABELS[i]} delay={i * 70} active={i === ENROL.length - 1} />
-          ))}
-        </View>
-      </Entrance>
+  return (
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#1A0A0C" />
 
-      {/* Grade performance */}
-      <Entrance index={3} style={styles.card}>
-        <Text style={styles.cardTitle}>Grade-wise performance</Text>
-        {GRADES.map((g, i) => (
-          <View key={g.name} style={[styles.gradeRow, i < GRADES.length - 1 && styles.divider]}>
-            <View style={{ flex: 1, gap: 7 }}>
-              <View style={styles.gradeTop}>
-                <Text style={styles.gradeName}>{g.name}</Text>
-                <Text style={styles.gradePct}>{g.pct}%</Text>
+      <LinearGradient colors={['#1A0A0C', '#2A0E13', '#3D1520']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
+        <View style={styles.heroGlow} pointerEvents="none"><GlowBlob size={220} /></View>
+        <SafeAreaView edges={['top']}>
+          <Text style={styles.heading}>Analytics</Text>
+          <Entrance index={0} style={styles.heroCard}>
+            <Shimmer />
+            <CircularProgress size={104} strokeWidth={10} progress={avg} trackColor="rgba(245,232,208,0.14)">
+              <View style={styles.ringCenter}>
+                <AnimatedCounter value={`${avg}%`} style={styles.ringPct} />
+                <Text style={styles.ringLbl}>Avg quiz</Text>
               </View>
-              <ProgressBar value={g.pct} variant={g.variant} height={6} />
+            </CircularProgress>
+            <View style={styles.heroInfo}>
+              <Text style={styles.heroInfoTitle}>This term</Text>
+              <Text style={styles.heroInfoSub}>{classes.length} classes tracked. {totals?.lessons_completed ?? 0} lessons completed and {totals?.quiz_attempts ?? 0} quiz attempts submitted.</Text>
             </View>
-          </View>
-        ))}
-      </Entrance>
+          </Entrance>
+        </SafeAreaView>
+      </LinearGradient>
 
-      {/* Highlights */}
-      <Entrance index={4} style={styles.card}>
-        <Text style={styles.cardTitle}>Highlights</Text>
-        <View style={styles.hlRow}>
-          <View style={[styles.hlIcon, { backgroundColor: Colors.successLight }]}><Icon name="trophy" size={15} color={Colors.success} /></View>
-          <View style={{ flex: 1 }}><Text style={styles.hlTitle}>Top class · 12-A</Text><Text style={styles.hlSub}>82% average · Dr. Meera Sharma</Text></View>
-        </View>
-        <View style={[styles.hlRow, { marginTop: 10 }]}>
-          <View style={[styles.hlIcon, { backgroundColor: Colors.dangerLight }]}><Icon name="warning" size={15} color={Colors.danger} /></View>
-          <View style={{ flex: 1 }}><Text style={styles.hlTitle}>Needs attention · 10-C</Text><Text style={styles.hlSub}>68% average · attendance dipping</Text></View>
-        </View>
-      </Entrance>
-    </ScrollView>
-  </View>
-);
+      {analyticsApi.loading && !analyticsApi.data ? (
+        <View style={styles.sheet}><LoadingState /></View>
+      ) : analyticsApi.error && !analyticsApi.data ? (
+        <View style={styles.sheet}><ErrorState message={analyticsApi.error} onRetry={analyticsApi.refetch} /></View>
+      ) : (
+        <ScrollView
+          style={styles.sheet}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={analyticsApi.refreshing} onRefresh={analyticsApi.refetch} tintColor={Colors.primary} />}
+        >
+          <Entrance index={0}>
+            <Button label="Export report" variant="outline" icon={<Icon name="upload" size={15} color={Colors.brand} />} onPress={() => Alert.alert('Export', 'A PDF/CSV export will be available soon.')} />
+          </Entrance>
+
+          {/* KPIs */}
+          <Entrance index={1} style={styles.kpiGrid}>
+            {kpis.map(k => (
+              <View key={k.label} style={styles.kpiTile}>
+                <View style={[styles.kpiIcon, { backgroundColor: k.tint }]}><Icon name={k.icon} size={15} color={k.color} /></View>
+                <Text style={[styles.kpiVal, { color: k.color }]}>{k.value}</Text>
+                <Text style={styles.kpiLbl}>{k.label}</Text>
+              </View>
+            ))}
+          </Entrance>
+
+          {/* Attendance trend (last 7 days) */}
+          {trend.length > 0 && (
+            <Entrance index={2} style={styles.card}>
+              <View style={styles.cardHead}>
+                <Text style={styles.cardTitle}>Attendance · last 7 days</Text>
+              </View>
+              <View style={styles.barsRow}>
+                {trend.map((t, i) => (
+                  <Bar key={`${t.date}-${i}`} pct={t.percent / trendMax} label={t.date} delay={i * 70} active={i === trend.length - 1} />
+                ))}
+              </View>
+            </Entrance>
+          )}
+
+          {/* Class performance */}
+          {classes.length > 0 && (
+            <Entrance index={3} style={styles.card}>
+              <Text style={styles.cardTitle}>Class performance</Text>
+              {classes.map((c, i) => (
+                <View key={c.id} style={[styles.gradeRow, i < classes.length - 1 && styles.divider]}>
+                  <View style={{ flex: 1, gap: 7 }}>
+                    <View style={styles.gradeTop}>
+                      <Text style={styles.gradeName}>{c.label}</Text>
+                      <Text style={styles.gradePct}>{c.avg_quiz_percent}%</Text>
+                    </View>
+                    <ProgressBar value={c.avg_quiz_percent} variant={perfVariant(c.avg_quiz_percent)} height={6} />
+                  </View>
+                </View>
+              ))}
+            </Entrance>
+          )}
+
+          {/* Highlights */}
+          {top && atRisk && (
+            <Entrance index={4} style={styles.card}>
+              <Text style={styles.cardTitle}>Highlights</Text>
+              <View style={styles.hlRow}>
+                <View style={[styles.hlIcon, { backgroundColor: Colors.successLight }]}><Icon name="trophy" size={15} color={Colors.success} /></View>
+                <View style={{ flex: 1 }}><Text style={styles.hlTitle}>Top class · {top.label}</Text><Text style={styles.hlSub}>{top.avg_quiz_percent}% avg quiz · {top.students} students</Text></View>
+              </View>
+              <View style={[styles.hlRow, { marginTop: 10 }]}>
+                <View style={[styles.hlIcon, { backgroundColor: Colors.dangerLight }]}><Icon name="warning" size={15} color={Colors.danger} /></View>
+                <View style={{ flex: 1 }}><Text style={styles.hlTitle}>Needs attention · {atRisk.label}</Text><Text style={styles.hlSub}>{atRisk.avg_quiz_percent}% avg quiz · {atRisk.attendance_percent}% attendance</Text></View>
+              </View>
+            </Entrance>
+          )}
+        </ScrollView>
+      )}
+    </View>
+  );
+};
 
 const Bar: React.FC<{ pct: number; label: string; delay: number; active: boolean }> = ({ pct, label, delay, active }) => {
   const h = useRef(new Animated.Value(0)).current;

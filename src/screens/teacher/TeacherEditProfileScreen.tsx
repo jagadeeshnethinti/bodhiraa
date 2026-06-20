@@ -16,12 +16,14 @@ import { initials } from '../../utils/ui';
 
 export const TeacherEditProfileScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const { user } = useAuth();
-  const [name, setName] = useState(user?.name ?? 'Dr. Meera Sharma');
-  const [email, setEmail] = useState(user?.email ?? 'meera.sharma@dps.edu.in');
-  const [phone, setPhone] = useState('98765 43210');
-  const [subject, setSubject] = useState('Physics');
+  const [name, setName] = useState(user?.name ?? '');
+  const [email, setEmail] = useState(user?.email ?? '');
+  const [phone, setPhone] = useState(user?.phone ?? '');
+  const [subject, setSubject] = useState('');
   const [saving, setSaving] = useState(false);
 
+  // No teacher profile-update endpoint exists yet, so saving is a local stub that
+  // confirms and returns; wire to a real PATCH once the backend exposes one.
   const save = () => {
     setSaving(true);
     setTimeout(() => {

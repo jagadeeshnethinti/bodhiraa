@@ -17,12 +17,14 @@ import { initials } from '../../utils/ui';
 
 export const ParentEditProfileScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const { user } = useAuth();
-  const [name, setName] = useState(user?.name ?? 'Rajesh Sharma');
-  const [email, setEmail] = useState(user?.email ?? 'rajesh.sharma@gmail.com');
-  const [phone, setPhone] = useState('98765 43210');
+  const [name, setName] = useState(user?.name ?? '');
+  const [email, setEmail] = useState(user?.email ?? '');
+  const [phone, setPhone] = useState(user?.phone ?? '');
   const [relation, setRelation] = useState('Father');
   const [saving, setSaving] = useState(false);
 
+  // NOTE: the backend exposes no parent profile-update endpoint yet, so saving is
+  // a local confirmation only (display is wired to the live auth `user`).
   const save = () => {
     setSaving(true);
     setTimeout(() => {

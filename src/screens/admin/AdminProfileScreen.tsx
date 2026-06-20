@@ -1,7 +1,7 @@
 /**
  * Admin · Profile — administrator account + school identity. Editable avatar,
- * school snapshot chips, a school info card, and settings rows that navigate to
- * real screens. Sign-out confirms first.
+ * live school snapshot chips (GET /admin/home), a school info card from the auth
+ * user, and settings rows. Sign-out confirms first.
  */
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, StatusBar, Alert, Linking, TouchableOpacity } from 'react-native';
@@ -14,18 +14,22 @@ import { GlowBlob } from '../../components/illustrations/OnboardingArt';
 import { BoldIcon as Icon, BoldIconName as IconName } from '../../components/common/BoldIcon';
 import { ConfirmDialog } from '../../components/common/PremiumModals';
 import { useAuth } from '../../context/AuthContext';
+import { useApi } from '../../hooks/useApi';
+import { AdminApi } from '../../api/endpoints/admin';
 import { initials } from '../../utils/ui';
 import { Env } from '../../config/env';
 
-const SCHOOL_INFO: { icon: IconName; label: string; value: string }[] = [
-  { icon: 'school', label: 'School', value: 'Delhi Public School' },
-  { icon: 'phone', label: 'Helpline', value: '+91 11 4000 0000' },
-  { icon: 'flag', label: 'Board', value: 'CBSE · Affiliation 2730xxx' },
-];
-
 export const AdminProfileScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const { user, logout } = useAuth();
-  const name = user?.name ?? 'Suresh Iyer';
+  const name = user?.name ?? 'Administrator';
+  const home = useApi(signal => AdminApi.home(signal), []);
+  const stats = home.data?.stats;
+
+  const schoolInfo: { icon: IconName; label: string; value: string }[] = [
+    { icon: 'school', label: 'School', value: user?.school?.name ?? home.data?.admin?.school ?? '—' },
+    { icon: 'flag', label: 'Code', value: user?.school?.code ?? home.data?.admin?.school_code ?? '—' },
+    { icon: 'phone', label: 'Email', value: user?.email ?? '—' },
+  ];
 
   const [logoutOpen, setLogoutOpen] = useState(false);
 
@@ -47,11 +51,11 @@ export const AdminProfileScreen: React.FC<{ navigation: any }> = ({ navigation }
               <View style={styles.editDot}><Icon name="edit" size={11} color={Colors.brand} /></View>
             </TouchableOpacity>
             <Text style={styles.name}>{name}</Text>
-            <Text style={styles.subtitle}>School Administrator · DPS</Text>
+            <Text style={styles.subtitle}>{user?.role_label ?? 'School Administrator'}{user?.school?.code ? ` · ${user.school.code}` : ''}</Text>
             <View style={styles.chipRow}>
-              <View style={styles.chip}><Icon name="school" size={11} color={Colors.primary} /><Text style={styles.chipTxt}>1,248 students</Text></View>
-              <View style={styles.chip}><Icon name="teacher" size={11} color={Colors.primary} /><Text style={styles.chipTxt}>68 teachers</Text></View>
-              <View style={styles.chip}><Icon name="star" size={11} color={Colors.primary} /><Text style={styles.chipTxt}>Since 2018</Text></View>
+              <View style={styles.chip}><Icon name="school" size={11} color={Colors.primary} /><Text style={styles.chipTxt}>{stats?.students ?? 0} students</Text></View>
+              <View style={styles.chip}><Icon name="teacher" size={11} color={Colors.primary} /><Text style={styles.chipTxt}>{stats?.teachers ?? 0} teachers</Text></View>
+              <View style={styles.chip}><Icon name="library" size={11} color={Colors.primary} /><Text style={styles.chipTxt}>{stats?.classes ?? 0} classes</Text></View>
             </View>
           </Entrance>
         </SafeAreaView>
@@ -65,8 +69,8 @@ export const AdminProfileScreen: React.FC<{ navigation: any }> = ({ navigation }
         {/* School info */}
         <Entrance index={1}><Text style={styles.sectionTitle}>School</Text></Entrance>
         <Entrance index={2} style={styles.infoCard}>
-          {SCHOOL_INFO.map((s, i) => (
-            <View key={s.label} style={[styles.infoRow, i < SCHOOL_INFO.length - 1 && styles.divider]}>
+          {schoolInfo.map((s, i) => (
+            <View key={s.label} style={[styles.infoRow, i < schoolInfo.length - 1 && styles.divider]}>
               <View style={styles.infoIcon}><Icon name={s.icon} size={16} color={Colors.primaryDark} /></View>
               <Text style={styles.infoLabel}>{s.label}</Text>
               <Text style={styles.infoValue} numberOfLines={1}>{s.value}</Text>

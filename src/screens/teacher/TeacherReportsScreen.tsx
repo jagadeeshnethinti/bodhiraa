@@ -1,108 +1,135 @@
 /**
- * Teacher · Reports — class analytics: an overall-average hero ring, per-class
- * performance bars, a weekly submissions chart, and topic mastery (strong/weak).
- * Export action. Static mock for now.
+ * Teacher · Reports — class analytics. The hero ring + per-class list and the
+ * headline stats are wired to GET /teacher/home via TeacherApi.home(). The
+ * weekly-submissions chart and topic-mastery breakdown remain static: no
+ * TeacherApi method aggregates submissions-by-day or topic mastery, and the
+ * per-quiz analytics endpoint needs a specific quizId this screen doesn't have.
  */
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, StatusBar, Animated, Easing, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, StatusBar, Animated, Easing, Alert, RefreshControl } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Radius, Shadow } from '../../theme';
 import { Button } from '../../components/common/Button';
-import { ProgressBar } from '../../components/common/ProgressBar';
 import { CircularProgress } from '../../components/common/CircularProgress';
+import { LoadingState, ErrorState, EmptyState } from '../../components/common/ScreenStates';
 import { Entrance, AnimatedCounter, Shimmer } from '../../components/common/anim';
 import { GlowBlob } from '../../components/illustrations/OnboardingArt';
 import { Icon } from '../../components/common/Icon';
+import { useApi } from '../../hooks/useApi';
+import { TeacherApi } from '../../api';
 
-const OVERALL = 76;
-const CLASSES: { name: string; pct: number; variant: 'success' | 'warning' | 'teal' }[] = [
-  { name: 'Class 11-A · Physics', pct: 78, variant: 'success' },
-  { name: 'Class 12-B · Chemistry', pct: 65, variant: 'warning' },
-  { name: 'Class 10-C · Maths', pct: 88, variant: 'teal' },
-];
+// Static — no TeacherApi method exposes submissions-by-day or topic mastery yet.
 const SUBMISSIONS = [32, 41, 28, 45, 38, 22, 12]; // this week
 const DOW = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const TOPICS_STRONG = ['Kinematics', 'Electrostatics', 'Algebra'];
 const TOPICS_WEAK = ['Wave Optics', 'Organic Chemistry', 'Calculus'];
 
-export const TeacherReportsScreen: React.FC<{ navigation: any }> = () => (
-  <View style={styles.container}>
-    <StatusBar barStyle="light-content" backgroundColor="#1A0A0C" />
+export const TeacherReportsScreen: React.FC<{ navigation: any }> = () => {
+  const home = useApi(signal => TeacherApi.home(signal), []);
+  const data = home.data;
 
-    <LinearGradient colors={['#1A0A0C', '#2A0E13', '#3D1520']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
-      <View style={styles.heroGlow} pointerEvents="none"><GlowBlob size={220} /></View>
-      <SafeAreaView edges={['top']}>
-        <Text style={styles.heading}>Reports</Text>
-        <Entrance index={0} style={styles.heroCard}>
-          <Shimmer />
-          <CircularProgress size={104} strokeWidth={10} progress={OVERALL} trackColor="rgba(245,232,208,0.14)">
-            <View style={styles.ringCenter}>
-              <AnimatedCounter value={`${OVERALL}%`} style={styles.ringPct} />
-              <Text style={styles.ringLbl}>Overall</Text>
-            </View>
-          </CircularProgress>
-          <View style={styles.heroInfo}>
-            <Text style={styles.heroInfoTitle}>All classes · this term</Text>
-            <Text style={styles.heroInfoSub}>125 students across 3 classes. 10-C is leading at 88%; 12-B needs attention at 65%.</Text>
-          </View>
-        </Entrance>
-      </SafeAreaView>
-    </LinearGradient>
+  const stats = data?.stats;
+  const overall = stats?.attendanceToday ?? 0;
+  const classes = data?.classes ?? [];
+  const submissionsTotal = SUBMISSIONS.reduce((a, b) => a + b, 0);
 
-    <ScrollView style={styles.sheet} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <Entrance index={0}>
-        <Button label="Export report" variant="outline" icon={<Icon name="upload" size={15} color={Colors.brand} />} onPress={() => Alert.alert('Export', 'A PDF/CSV export will be available in v1.')} />
-      </Entrance>
+  return (
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#1A0A0C" />
 
-      {/* Class performance */}
-      <Entrance index={1} style={styles.card}>
-        <Text style={styles.cardTitle}>Class performance</Text>
-        {CLASSES.map((c, i) => (
-          <View key={c.name} style={[styles.classRow, i < CLASSES.length - 1 && styles.divider]}>
-            <View style={{ flex: 1, gap: 7 }}>
-              <View style={styles.classTop}>
-                <Text style={styles.className}>{c.name}</Text>
-                <Text style={styles.classPct}>{c.pct}%</Text>
+      <LinearGradient colors={['#1A0A0C', '#2A0E13', '#3D1520']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
+        <View style={styles.heroGlow} pointerEvents="none"><GlowBlob size={220} /></View>
+        <SafeAreaView edges={['top']}>
+          <Text style={styles.heading}>Reports</Text>
+          <Entrance index={0} style={styles.heroCard}>
+            <Shimmer />
+            <CircularProgress size={104} strokeWidth={10} progress={overall} trackColor="rgba(245,232,208,0.14)">
+              <View style={styles.ringCenter}>
+                <AnimatedCounter value={`${overall}%`} style={styles.ringPct} />
+                <Text style={styles.ringLbl}>Attendance</Text>
               </View>
-              <ProgressBar value={c.pct} variant={c.variant} height={6} />
+            </CircularProgress>
+            <View style={styles.heroInfo}>
+              <Text style={styles.heroInfoTitle}>All classes · today</Text>
+              <Text style={styles.heroInfoSub}>
+                {stats
+                  ? `${stats.students} students across ${stats.classes} ${stats.classes === 1 ? 'class' : 'classes'}. ${stats.pending} ${stats.pending === 1 ? 'submission' : 'submissions'} pending review.`
+                  : 'Loading class performance…'}
+              </Text>
             </View>
-          </View>
-        ))}
-      </Entrance>
+          </Entrance>
+        </SafeAreaView>
+      </LinearGradient>
 
-      {/* Weekly submissions */}
-      <Entrance index={2} style={styles.card}>
-        <View style={styles.cardHead}>
-          <Text style={styles.cardTitle}>Submissions this week</Text>
-          <View style={styles.totalChip}><Text style={styles.totalChipTxt}>218 total</Text></View>
-        </View>
-        <View style={styles.barsRow}>
-          {SUBMISSIONS.map((v, i) => (
-            <Bar key={i} pct={v / Math.max(...SUBMISSIONS)} label={DOW[i]} delay={i * 70} active={i === SUBMISSIONS.length - 1} />
-          ))}
-        </View>
-      </Entrance>
+      {home.loading && !home.data ? (
+        <View style={styles.sheet}><LoadingState /></View>
+      ) : home.error && !home.data ? (
+        <View style={styles.sheet}><ErrorState message={home.error} onRetry={home.refetch} /></View>
+      ) : (
+        <ScrollView
+          style={styles.sheet}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={home.refreshing} onRefresh={home.refetch} tintColor={Colors.primary} />}
+        >
+          <Entrance index={0}>
+            <Button label="Export report" variant="outline" icon={<Icon name="upload" size={15} color={Colors.brand} />} onPress={() => Alert.alert('Export', 'A PDF/CSV export will be available in v1.')} />
+          </Entrance>
 
-      {/* Topic mastery */}
-      <Entrance index={3} style={styles.card}>
-        <Text style={styles.cardTitle}>Topic mastery</Text>
-        <View style={styles.topicBlock}>
-          <View style={styles.topicLabelRow}><View style={[styles.topicDot, { backgroundColor: Colors.success }]} /><Text style={styles.topicLabel}>Strong</Text></View>
-          <View style={styles.tagWrap}>
-            {TOPICS_STRONG.map(t => <View key={t} style={[styles.topicTag, { backgroundColor: Colors.successLight }]}><Text style={[styles.topicTagTxt, { color: Colors.success }]}>{t}</Text></View>)}
-          </View>
-        </View>
-        <View style={[styles.topicBlock, { marginTop: 14 }]}>
-          <View style={styles.topicLabelRow}><View style={[styles.topicDot, { backgroundColor: Colors.danger }]} /><Text style={styles.topicLabel}>Needs work</Text></View>
-          <View style={styles.tagWrap}>
-            {TOPICS_WEAK.map(t => <View key={t} style={[styles.topicTag, { backgroundColor: Colors.dangerLight }]}><Text style={[styles.topicTagTxt, { color: Colors.danger }]}>{t}</Text></View>)}
-          </View>
-        </View>
-      </Entrance>
-    </ScrollView>
-  </View>
-);
+          {/* Classes overview (live) */}
+          <Entrance index={1} style={styles.card}>
+            <Text style={styles.cardTitle}>Classes overview</Text>
+            {classes.length === 0 ? (
+              <EmptyState icon="library" title="No classes" sub="Classes assigned to you will appear here." />
+            ) : (
+              classes.map((c, i) => (
+                <View key={c.id} style={[styles.classRow, i < classes.length - 1 && styles.divider]}>
+                  <View style={{ flex: 1 }}>
+                    <View style={styles.classTop}>
+                      <Text style={styles.className}>{c.name}</Text>
+                      <Text style={styles.classPct}>{c.students} students</Text>
+                    </View>
+                  </View>
+                </View>
+              ))
+            )}
+          </Entrance>
+
+          {/* Weekly submissions (static — no daily-aggregate endpoint) */}
+          <Entrance index={2} style={styles.card}>
+            <View style={styles.cardHead}>
+              <Text style={styles.cardTitle}>Submissions this week</Text>
+              <View style={styles.totalChip}><Text style={styles.totalChipTxt}>{submissionsTotal} total</Text></View>
+            </View>
+            <View style={styles.barsRow}>
+              {SUBMISSIONS.map((v, i) => (
+                <Bar key={i} pct={v / Math.max(...SUBMISSIONS)} label={DOW[i]} delay={i * 70} active={i === SUBMISSIONS.length - 1} />
+              ))}
+            </View>
+          </Entrance>
+
+          {/* Topic mastery (static — no topic-mastery endpoint) */}
+          <Entrance index={3} style={styles.card}>
+            <Text style={styles.cardTitle}>Topic mastery</Text>
+            <View style={styles.topicBlock}>
+              <View style={styles.topicLabelRow}><View style={[styles.topicDot, { backgroundColor: Colors.success }]} /><Text style={styles.topicLabel}>Strong</Text></View>
+              <View style={styles.tagWrap}>
+                {TOPICS_STRONG.map(t => <View key={t} style={[styles.topicTag, { backgroundColor: Colors.successLight }]}><Text style={[styles.topicTagTxt, { color: Colors.success }]}>{t}</Text></View>)}
+              </View>
+            </View>
+            <View style={[styles.topicBlock, { marginTop: 14 }]}>
+              <View style={styles.topicLabelRow}><View style={[styles.topicDot, { backgroundColor: Colors.danger }]} /><Text style={styles.topicLabel}>Needs work</Text></View>
+              <View style={styles.tagWrap}>
+                {TOPICS_WEAK.map(t => <View key={t} style={[styles.topicTag, { backgroundColor: Colors.dangerLight }]}><Text style={[styles.topicTagTxt, { color: Colors.danger }]}>{t}</Text></View>)}
+              </View>
+            </View>
+          </Entrance>
+        </ScrollView>
+      )}
+    </View>
+  );
+};
 
 const Bar: React.FC<{ pct: number; label: string; delay: number; active: boolean }> = ({ pct, label, delay, active }) => {
   const h = useRef(new Animated.Value(0)).current;

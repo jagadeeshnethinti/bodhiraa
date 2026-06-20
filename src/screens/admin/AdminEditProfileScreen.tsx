@@ -1,6 +1,8 @@
 /**
  * Admin · Edit profile — administrator details using the hardened auth field
- * components. Premium gradient-header sheet; saving confirms and returns.
+ * components, prefilled from the authenticated user. The backend exposes no
+ * admin self-profile update endpoint (no PATCH /admin/profile), so saving is a
+ * local confirmation only — see note below.
  */
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, StatusBar, TouchableOpacity, Alert } from 'react-native';
@@ -16,17 +18,19 @@ import { initials } from '../../utils/ui';
 
 export const AdminEditProfileScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const { user } = useAuth();
-  const [name, setName] = useState(user?.name ?? 'Suresh Iyer');
-  const [email, setEmail] = useState(user?.email ?? 'admin@dps.edu.in');
-  const [phone, setPhone] = useState('98765 43210');
-  const [school, setSchool] = useState('Delhi Public School');
+  const [name, setName] = useState(user?.name ?? '');
+  const [email, setEmail] = useState(user?.email ?? '');
+  const [phone, setPhone] = useState(user?.phone ?? '');
+  const [school, setSchool] = useState(user?.school?.name ?? '');
   const [saving, setSaving] = useState(false);
 
+  // NOTE: There is no admin self-profile update endpoint on the backend, so this
+  // only confirms locally. Wire to a real PATCH here once the API exposes one.
   const save = () => {
     setSaving(true);
     setTimeout(() => {
       setSaving(false);
-      Alert.alert('Saved', 'Your details have been updated.', [{ text: 'OK', onPress: () => navigation.goBack() }]);
+      Alert.alert('Saved', 'Your details have been updated on this device.', [{ text: 'OK', onPress: () => navigation.goBack() }]);
     }, 600);
   };
 

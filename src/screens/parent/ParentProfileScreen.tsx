@@ -14,24 +14,25 @@ import { GlowBlob } from '../../components/illustrations/OnboardingArt';
 import { Icon, IconName } from '../../components/common/Icon';
 import { ConfirmDialog } from '../../components/common/PremiumModals';
 import { useAuth } from '../../context/AuthContext';
+import { useApi } from '../../hooks/useApi';
+import { ParentApi } from '../../api';
 import { initials } from '../../utils/ui';
 import { Env } from '../../config/env';
 
-const CHILDREN = [
-  { name: 'Arjun Sharma', meta: 'Class 11-A · DPS' },
-  { name: 'Ananya Sharma', meta: 'Class 7-B · DPS' },
-];
-
 export const ParentProfileScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const { user, logout } = useAuth();
-  const name = user?.name ?? 'Rajesh Sharma';
+  const name = user?.name ?? 'Parent';
+  // Live linked children for the switcher.
+  const childrenApi = useApi(signal => ParentApi.children(signal), []);
+  const children = childrenApi.data ?? [];
   const [activeChild, setActiveChild] = useState(0);
 
   const [logoutOpen, setLogoutOpen] = useState(false);
 
   const switchChild = (i: number) => {
+    const wasActive = i === activeChild;
     setActiveChild(i);
-    if (i !== activeChild) Alert.alert('Switched', `Now viewing ${CHILDREN[i].name}'s dashboard.`);
+    if (!wasActive && children[i]) Alert.alert('Switched', `Now viewing ${children[i].name}'s dashboard.`);
   };
 
   const linkChild = () =>
@@ -59,12 +60,13 @@ export const ParentProfileScreen: React.FC<{ navigation: any }> = ({ navigation 
               <View style={styles.editDot}><Icon name="edit" size={11} color={Colors.brand} /></View>
             </TouchableOpacity>
             <Text style={styles.name}>{name}</Text>
-            <Text style={styles.subtitle}>Parent · Delhi Public School</Text>
+            <Text style={styles.subtitle}>{user?.school ? `Parent · ${user.school.name}` : 'Parent'}</Text>
 
             <View style={styles.chipRow}>
-              <View style={styles.chip}><Icon name="child" size={11} color={Colors.primary} /><Text style={styles.chipTxt}>{CHILDREN.length} children</Text></View>
-              <View style={styles.chip}><Icon name="checkmark" size={11} color={Colors.success} /><Text style={styles.chipTxt}>Verified</Text></View>
-              <View style={styles.chip}><Icon name="star" size={11} color={Colors.primary} /><Text style={styles.chipTxt}>Since 2024</Text></View>
+              <View style={styles.chip}><Icon name="child" size={11} color={Colors.primary} /><Text style={styles.chipTxt}>{children.length} {children.length === 1 ? 'child' : 'children'}</Text></View>
+              {user?.email_verified ? (
+                <View style={styles.chip}><Icon name="checkmark" size={11} color={Colors.success} /><Text style={styles.chipTxt}>Verified</Text></View>
+              ) : null}
             </View>
           </Entrance>
         </SafeAreaView>
@@ -85,10 +87,13 @@ export const ParentProfileScreen: React.FC<{ navigation: any }> = ({ navigation 
         {/* Children switcher */}
         <Entrance index={1}><Text style={styles.sectionTitle}>Your children</Text></Entrance>
         <Entrance index={2} style={{ gap: 8 }}>
-          {CHILDREN.map((c, i) => {
+          {children.length === 0 && !childrenApi.loading ? (
+            <Text style={styles.childMeta}>No children linked yet.</Text>
+          ) : null}
+          {children.map((c, i) => {
             const active = i === activeChild;
             return (
-              <PressableScale key={c.name} style={[styles.childCard, active && styles.childCardActive]} onPress={() => switchChild(i)}>
+              <PressableScale key={c.id} style={[styles.childCard, active && styles.childCardActive]} onPress={() => switchChild(i)}>
                 <View style={[styles.childAvatar, active && styles.childAvatarActive]}>
                   <Text style={[styles.childInitials, active && { color: Colors.brand }]}>{initials(c.name)}</Text>
                 </View>
@@ -115,7 +120,7 @@ export const ParentProfileScreen: React.FC<{ navigation: any }> = ({ navigation 
           <Text style={styles.sectionTitle}>Account</Text>
           <SettingRow icon="user" label="Personal details" sub="Name, email, phone" onPress={() => navigation.navigate('ParentEditProfile')} />
           <SettingRow icon="bell" label="Contact & notifications" sub="What you get alerted about" onPress={() => navigation.navigate('ParentNotifications')} />
-          <SettingRow icon="card" label="Fees & payments" sub="₹24,500 due · 30 Jun" onPress={() => navigation.navigate('ParentFees')} />
+          <SettingRow icon="card" label="Fees & payments" sub="View dues and history" onPress={() => navigation.navigate('ParentFees')} />
           <SettingRow icon="flag" label="Language" sub="English" onPress={() => navigation.navigate('Language')} />
         </Entrance>
 
