@@ -8,6 +8,7 @@ import React, {
   useState,
 } from 'react';
 import {
+  ApiError,
   AuthApi,
   setAuthToken,
   setUnauthorizedHandler,
@@ -22,6 +23,17 @@ import {
 import { Env } from '../config/env';
 
 type AuthStatus = 'booting' | 'authenticated' | 'unauthenticated';
+
+/**
+ * The mobile app is built for students, teachers and parents only. School
+ * admins and super-admins have their full tooling on the web, so they are not
+ * allowed to hold a session in the app.
+ */
+const isMobileRole = (role?: Role | null): boolean =>
+  role === 'student' || role === 'teacher' || role === 'parent';
+
+const WEB_ONLY_MESSAGE =
+  'This app is for students, teachers and parents. School admins manage Bodhira.ai on the web at bodhira.ai/login.';
 
 interface AuthContextValue {
   status: AuthStatus;
@@ -69,6 +81,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setStatus('authenticated');
   }, []);
 
+  /** Commit a session only if the role is allowed on mobile; otherwise reject
+   *  with a friendly message (and never persist an admin/super-admin session). */
+  const commitIfAllowed = useCallback(
+    async (payload: AuthPayload) => {
+      if (!isMobileRole(payload.user?.role)) {
+        throw new ApiError(WEB_ONLY_MESSAGE, { status: 403, kind: 'forbidden', code: 'web_only_role' });
+      }
+      await applySession(payload);
+    },
+    [applySession],
+  );
+
   /** Tear down the session everywhere. */
   const clearSession = useCallback(async () => {
     setAuthToken(null);
@@ -96,15 +120,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
       setAuthToken(stored);
-      // Render instantly from the cached user while we revalidate.
+      // Render instantly from the cached user while we revalidate (mobile roles only).
       const cached = await Storage.getUser<ApiUser>();
-      if (cached && mounted.current) {
+      if (cached && isMobileRole(cached.role) && mounted.current) {
         setTokenState(stored);
         setUserState(cached);
       }
       try {
         const fresh = await AuthApi.me();
         if (!mounted.current) return;
+        // A web-only role (admin/super-admin) must not hold a mobile session.
+        if (!isMobileRole(fresh.role)) {
+          await clearSession();
+          return;
+        }
         setTokenState(stored);
         setUserState(fresh);
         await Storage.setUser(fresh);
@@ -120,17 +149,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = useCallback(
     async (input: LoginInput) => {
       const payload = await AuthApi.login({ device: Env.device, ...input });
-      await applySession(payload);
+      await commitIfAllowed(payload);
     },
-    [applySession],
+    [commitIfAllowed],
   );
 
   const register = useCallback(
     async (input: RegisterInput) => {
       const payload = await AuthApi.register(input);
-      await applySession(payload);
+      await commitIfAllowed(payload);
     },
-    [applySession],
+    [commitIfAllowed],
   );
 
   const otpSend = useCallback((phone: string) => AuthApi.otpSend(phone), []);
@@ -138,9 +167,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const otpVerify = useCallback(
     async (input: OtpVerifyInput) => {
       const payload = await AuthApi.otpVerify({ device: Env.device, ...input });
-      await applySession(payload);
+      await commitIfAllowed(payload);
     },
-    [applySession],
+    [commitIfAllowed],
   );
 
   const logout = useCallback(async () => {
