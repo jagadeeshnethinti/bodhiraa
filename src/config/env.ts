@@ -23,7 +23,7 @@ const DEV_HOST =
     default: 'http://127.0.0.1:8000',
   }) ?? 'http://127.0.0.1:8000';
 
-const API_HOST = DEV_HOST;
+const API_HOST = PROD_HOST;
 
 export const Env = {
   /**
@@ -34,7 +34,8 @@ export const Env = {
    * SET THIS TO `false` TO USE THE REAL BACKEND at `apiBaseUrl` below. Nothing
    * else needs to change.
    *
-   * Wired to the local Laravel backend (see `API_HOST` above).
+   * Wired to the production backend at https://bodhiraai.com (see `API_HOST`
+   * above; switch to `DEV_HOST` for the local Laravel server).
    */
   useMock: false,
   /** Fully-qualified API root, e.g. `http://10.0.2.2:8000/api/v1`. */
