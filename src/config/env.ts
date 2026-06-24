@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
  * Single source of truth for backend connectivity. Everything below derives
  * from `API_HOST`.
  *
+<<<<<<< HEAD
  * Currently pointed at the deployed backend (`https://bodhiraai.com`). For local
  * development against `artisan serve`, set this back to the host loopback:
  * iOS simulator → `http://127.0.0.1:8000`; Android emulator → `http://10.0.2.2:8000`
@@ -11,6 +12,14 @@ import { Platform } from 'react-native';
  * a physical device → your machine's LAN IP, e.g. `http://192.168.1.20:8000`.
  */
 const API_HOST = 'https://bodhiraai.com';
+=======
+ * Points at the production backend. To run against a local server instead,
+ * change `DEV_HOST` (e.g. `http://10.0.2.2:8000` for the Android emulator,
+ * `http://127.0.0.1:8000` for the iOS simulator, or `http://<LAN-IP>:8000`
+ * for a physical device). Everything else derives from it.
+ */
+const DEV_HOST = 'https://bodhiraai.com';
+>>>>>>> a80b3b1d96ea33198959875760c9afca6eac9e88
 
 export const Env = {
   /**
