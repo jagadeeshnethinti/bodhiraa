@@ -46,7 +46,18 @@
       "PowerShell($node = \\(Get-Command node -ErrorAction SilentlyContinue\\).Source; \"node=$node\"; $npx = \\(Get-Command npx.cmd -ErrorAction SilentlyContinue\\).Source; \"npx=$npx\"; if \\(Test-Path \".\\\\package.json\"\\) { \"pkg exists\" })",
       "PowerShell($paths = @\\(\"C:\\\\Program Files\\\\nodejs\\\\node.exe\",\"C:\\\\Program Files \\(x86\\)\\\\nodejs\\\\node.exe\",\"$env:LOCALAPPDATA\\\\Programs\\\\nodejs\\\\node.exe\",\"$env:APPDATA\\\\npm\\\\node.exe\",\"$env:ProgramData\\\\nvm\\\\node.exe\"\\); foreach \\($p in $paths\\) { if \\(Test-Path $p\\) { \"FOUND: $p\" } }; Get-ChildItem \"$env:ProgramData\\\\nvm\" -ErrorAction SilentlyContinue | Select-Object -First 5 Name; Get-ChildItem \"$env:APPVEYOR\" -ErrorAction SilentlyContinue)",
       "PowerShell(cd \"e:\\\\project\\\\bodhiraa_frontend\"; npx tsc --noEmit 2>&1 | Select-Object -First 60; \"EXIT: $LASTEXITCODE\")",
-      "Bash(curl -s -X POST http://127.0.0.1:8000/api/v1/auth/login -H \"Accept: application/json\" -H \"Content-Type: application/json\" -d '{\"identifier\":\"admin@bodhira.test\",\"password\":\"password\",\"device\":\"web\"}')"
+      "Bash(curl -s -X POST http://127.0.0.1:8000/api/v1/auth/login -H \"Accept: application/json\" -H \"Content-Type: application/json\" -d '{\"identifier\":\"admin@bodhira.test\",\"password\":\"password\",\"device\":\"web\"}')",
+      "Bash(curl -s -m 12 https://bodhiraai.com/api/v1/ping)",
+      "Bash(cd \"e:/project/_bodhiraai.com\" *)",
+      "Bash(grep -ohiE \"\\(--[a-z-]*\\(primary|brand|accent|theme\\)[a-z-]*\\\\s*:\\\\s*#[0-9a-fA-F]{3,8}\\)|\\(#[0-9a-fA-F]{6}\\)\" public_html/assets/css/bodhira-theme.css)",
+      "Bash(php84/php.exe artisan *)",
+      "Bash(curl -s -o /tmp/feat.html -w \"%{http_code}\" -m 20 http://127.0.0.1:8000/features)",
+      "Bash(grep -nE \"^\\(h1|h2|h3|h4\\)[^{]*\\\\{[^}]*color|\\(h1|h2|h3|h4\\)\\\\s*,|\\\\.title\\\\s*\\\\{[^}]*color\" public_html/assets/css/main.css)",
+      "Bash(grep -oE \".{0,40}Ready to modernize your school.{0,20}\" /tmp/feat.html)"
+    ],
+    "additionalDirectories": [
+      "e:\\project\\bodhiraa_frontend\\app\\Http\\Controllers",
+      "e:\\project\\_bodhiraai.com\\resources\\views"
     ]
   }
 }
