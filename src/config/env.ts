@@ -3,20 +3,12 @@ import { Platform } from 'react-native';
 /**
  * Single source of truth for backend connectivity.
  *
- * The Android emulator runs in its own VM and cannot reach the host machine's
- * `127.0.0.1` — the host loopback is exposed to the emulator as `10.0.2.2`.
- * The iOS simulator shares the host network, so `127.0.0.1` works there.
- *
- * To point the app at a physical device on your LAN or a deployed server,
- * change `DEV_HOST` below (e.g. `http://192.168.1.20:8000` or
- * `https://api.bodhira.ai`). Everything else derives from it.
+ * Points at the production backend. To run against a local server instead,
+ * change `DEV_HOST` (e.g. `http://10.0.2.2:8000` for the Android emulator,
+ * `http://127.0.0.1:8000` for the iOS simulator, or `http://<LAN-IP>:8000`
+ * for a physical device). Everything else derives from it.
  */
-const DEV_HOST =
-  Platform.select({
-    android: 'http://10.0.2.2:8000',
-    ios: 'http://127.0.0.1:8000',
-    default: 'http://127.0.0.1:8000',
-  }) ?? 'http://127.0.0.1:8000';
+const DEV_HOST = 'https://bodhiraai.com';
 
 export const Env = {
   /**

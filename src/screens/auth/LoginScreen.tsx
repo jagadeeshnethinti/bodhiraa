@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, ActivityIndicator, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, ActivityIndicator } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../types';
@@ -9,7 +9,6 @@ import { Icon, IconName } from '../../components/common/Icon';
 import { AuthScaffold } from '../../components/common/AuthScaffold';
 import { IdentifierField, PasswordField } from '../../components/common/AuthField';
 import { FormBanner } from '../../components/common/FormBanner';
-import { SCHOOL_THEMES } from '../../theme';
 import { validateLoginIdentifier, validateRequired } from '../../utils/validation';
 import { useAuth } from '../../context/AuthContext';
 import { useAsyncAction } from '../../hooks/useAsyncAction';
@@ -40,9 +39,6 @@ const ROLES: RoleConfig[] = [
   { key: 'admin', label: 'Admin', icon: 'lock', accent: '#7A1322', accentDark: '#5A0E1A', onAccent: '#FFFFFF', greeting: 'Admin Console', sub: 'Sign in to your school control center', placeholder: 'Admin email', note: 'Admins continue on the secure web dashboard after sign-in.' },
 ];
 
-// Schools available to pick from (derived from the brand-theme registry).
-const SCHOOLS = Object.values(SCHOOL_THEMES).map(t => ({ code: t.key, name: t.name, accent: t.accent }));
-
 export const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const { login } = useAuth();
   const { submitting, run } = useAsyncAction();
@@ -53,14 +49,6 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
-
-  // Students choose: join with their School (themed) or a personal Bodhira account.
-  const [accountType, setAccountType] = useState<'school' | 'personal'>('school');
-  const [schoolCode, setSchoolCode] = useState('');
-  const [schoolError, setSchoolError] = useState<string | null>(null);
-  const [schoolPickerOpen, setSchoolPickerOpen] = useState(false);
-  const usingSchool = roleKey === 'student' && accountType === 'school';
-  const matchedSchool = usingSchool ? SCHOOL_THEMES[schoolCode.trim().toUpperCase()] : undefined;
 
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [pwError, setPwError] = useState<string | null>(null);
@@ -101,18 +89,15 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
     // Client-side validation first — no point hitting the API with bad input.
     const idErr = validateLoginIdentifier(identifier);
     const pwErr = validateRequired(password, 'your password');
-    const schErr = usingSchool && !schoolCode.trim() ? 'Enter your school code to continue.' : null;
     setFieldError(idErr);
     setPwError(pwErr);
-    setSchoolError(schErr);
-    if (idErr || pwErr || schErr) return;
+    if (idErr || pwErr) return;
     await run(async () => {
       try {
         await login({
           identifier: identifier.trim(),
           password,
           ...(Env.useMock ? { role: roleKey } : {}),
-          ...(usingSchool ? { school_code: schoolCode.trim() } : {}),
         });
       } catch (err) {
         if (err instanceof ApiError) {
@@ -154,7 +139,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
     );
   }
 
-  const disabled = submitting || cooldown > 0 || !identifier.trim() || !password || (usingSchool && !schoolCode.trim());
+  const disabled = submitting || cooldown > 0 || !identifier.trim() || !password;
 
   return (
     <AuthScaffold title={role.greeting} subtitle={role.sub} badge={role.icon} accent={role.accent}>
@@ -175,77 +160,6 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
           );
         })}
       </View>
-
-      {roleKey === 'student' && (
-        <>
-          <Text style={styles.selectorLabel}>ACCOUNT TYPE</Text>
-          <View style={styles.acctToggle}>
-            {(['school', 'personal'] as const).map(t => {
-              const active = accountType === t;
-              return (
-                <TouchableOpacity key={t} style={[styles.acctSeg, active && styles.acctSegActive]} activeOpacity={0.85} onPress={() => setAccountType(t)}>
-                  <Icon name={t === 'school' ? 'school' : 'user'} size={16} color={active ? Colors.brand : Colors.text3} />
-                  <Text style={[styles.acctSegTxt, active && styles.acctSegTxtActive]}>{t === 'school' ? 'My School' : 'Personal'}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {accountType === 'school' ? (
-            <>
-              <Text style={styles.fieldLabel}>SELECT SCHOOL</Text>
-              <TouchableOpacity activeOpacity={0.85} style={[styles.dropdown, !!schoolError && styles.dropdownError]} onPress={() => setSchoolPickerOpen(true)}>
-                <Icon name="school" size={17} color={matchedSchool ? matchedSchool.accent : Colors.text3} />
-                {matchedSchool ? (
-                  <Text style={styles.dropdownValue} numberOfLines={1}>{matchedSchool.name}</Text>
-                ) : (
-                  <Text style={styles.dropdownPlaceholder}>Choose your school</Text>
-                )}
-                <Text style={styles.dropdownChevron}>▾</Text>
-              </TouchableOpacity>
-              {schoolError ? <Text style={styles.fieldErr}>{schoolError}</Text> : null}
-            </>
-          ) : (
-            <View style={[styles.noteBox, { backgroundColor: Colors.primaryLight, borderColor: 'rgba(196,149,96,0.33)' }]}>
-              <Icon name="ai" size={14} color={Colors.primaryDark} />
-              <Text style={[styles.noteText, { color: Colors.primaryDark }]}>Personal Bodhira account — learn solo with full premium access.</Text>
-            </View>
-          )}
-
-          {matchedSchool && accountType === 'school' ? (
-            <View style={styles.schoolPreview}>
-              <Icon name="checkmark" size={13} color={Colors.success} />
-              <Text style={styles.schoolPreviewTxt}>The app will use {matchedSchool.name}'s theme</Text>
-            </View>
-          ) : null}
-
-          <Modal visible={schoolPickerOpen} transparent animationType="fade" onRequestClose={() => setSchoolPickerOpen(false)}>
-            <TouchableOpacity style={styles.pickerBackdrop} activeOpacity={1} onPress={() => setSchoolPickerOpen(false)}>
-              <View style={styles.pickerSheet}>
-                <Text style={styles.pickerTitle}>Select your school</Text>
-                {SCHOOLS.map(s => {
-                  const active = s.code === schoolCode;
-                  return (
-                    <TouchableOpacity
-                      key={s.code}
-                      activeOpacity={0.8}
-                      style={[styles.pickerRow, active && styles.pickerRowActive]}
-                      onPress={() => { setSchoolCode(s.code); setSchoolError(null); setSchoolPickerOpen(false); }}
-                    >
-                      <View style={[styles.pickerDot, { backgroundColor: s.accent }]} />
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.pickerName}>{s.name}</Text>
-                        <Text style={styles.pickerCode}>{s.code}</Text>
-                      </View>
-                      {active ? <Icon name="checkmark" size={16} color={Colors.success} /> : null}
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </TouchableOpacity>
-          </Modal>
-        </>
-      )}
 
       {role.note ? (
         <View style={[styles.noteBox, { backgroundColor: role.accent + '14', borderColor: role.accent + '33' }]}>
@@ -333,34 +247,6 @@ const styles = StyleSheet.create({
 
   noteBox: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: Radius.md, paddingHorizontal: 12, paddingVertical: 9, marginBottom: 16 },
   noteText: { fontSize: 11.5, fontWeight: '600', flex: 1, lineHeight: 16 },
-
-  acctToggle: { flexDirection: 'row', gap: 8, marginBottom: 14 },
-  acctSeg: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingVertical: 12, borderRadius: Radius.md, backgroundColor: Colors.bg2, borderWidth: 1, borderColor: Colors.border2 },
-  acctSegActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  acctSegTxt: { fontSize: 12.5, fontWeight: '700', color: Colors.text3 },
-  acctSegTxtActive: { color: Colors.brand },
-  schoolDot: { width: 16, height: 16, borderRadius: 8 },
-  schoolPreview: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, marginBottom: 16, marginLeft: 2 },
-  schoolPreviewTxt: { fontSize: 11.5, color: Colors.success, fontWeight: '600', flex: 1 },
-
-  // School dropdown
-  fieldLabel: { fontSize: 11, color: Colors.text3, fontWeight: '700', letterSpacing: 0.6, marginBottom: 6 },
-  dropdown: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Colors.bg, borderWidth: 1.5, borderColor: Colors.border, borderRadius: Radius.md, paddingHorizontal: 14, minHeight: 56 },
-  dropdownError: { borderColor: Colors.danger, backgroundColor: Colors.dangerLight },
-  dropdownValue: { flex: 1, fontSize: 15, color: Colors.text, fontWeight: '700' },
-  dropdownPlaceholder: { flex: 1, fontSize: 14, color: Colors.text3 },
-  dropdownChevron: { fontSize: 14, color: Colors.text3 },
-  fieldErr: { fontSize: 11.5, color: Colors.danger, fontWeight: '600', marginTop: 6, marginLeft: 2 },
-
-  // School picker modal
-  pickerBackdrop: { flex: 1, backgroundColor: 'rgba(20,6,9,0.55)', justifyContent: 'center', padding: 28 },
-  pickerSheet: { backgroundColor: Colors.white, borderRadius: 22, padding: 16, gap: 8 },
-  pickerTitle: { fontSize: 15, fontWeight: '800', color: Colors.text, marginBottom: 6, marginLeft: 2 },
-  pickerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 12, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border2, backgroundColor: Colors.bg },
-  pickerRowActive: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight },
-  pickerDot: { width: 18, height: 18, borderRadius: 9 },
-  pickerName: { fontSize: 14, fontWeight: '800', color: Colors.text },
-  pickerCode: { fontSize: 11, color: Colors.text2, marginTop: 1 },
 
   fields: { marginTop: 2 },
   forgotWrap: { alignSelf: 'flex-end', marginBottom: 14, marginTop: 2 },

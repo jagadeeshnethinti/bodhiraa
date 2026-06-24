@@ -19,14 +19,15 @@ import Orientation from 'react-native-orientation-locker';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { StudentStackParamList } from '../../types';
 import { Colors, Radius, Shadow } from '../../theme';
-import { StudentApi } from '../../api';
+import { StudentApi, authedVideoSource } from '../../api';
 import { Icon } from '../../components/common/Icon';
 import { Entrance, PressableScale } from '../../components/common/anim';
 import { useApi } from '../../hooks/useApi';
+import { useAuth } from '../../context/AuthContext';
 
 type Props = NativeStackScreenProps<StudentStackParamList, 'LessonVideo'>;
 
-// Bundled lesson video (plays offline). Swap this file (keep the name) to change it.
+// Bundled fallback clip — only used when a lesson has no backend video yet.
 const LOCAL_LESSON_VIDEO = require('../../assets/videos/rexy.mp4');
 
 const fmt = (s: number): string => {
@@ -46,10 +47,17 @@ export const LessonVideoScreen: React.FC<Props> = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
   const playerH = Math.round(winW * (9 / 16));
 
-  // Use the bundled video so it plays without a network connection.
-  const source = LOCAL_LESSON_VIDEO;
+  const { token } = useAuth();
   const lesson = useApi(signal => StudentApi.lesson(lessonId, signal), [lessonId]);
   const upNext = (lesson.data?.siblings ?? []).find(s => s.id !== lessonId) ?? null;
+
+  // Stream the real lesson video served by the backend (`content_url`). It is
+  // auth-protected and supports HTTP 206 Range requests, so we attach the bearer
+  // token for scrubbing. Until the lesson metadata loads we don't yet know the
+  // URL; hold the source back to avoid a load→swap flash, then fall back to the
+  // bundled clip only if the lesson genuinely has no video.
+  const remote = authedVideoSource(lesson.data?.content_url, token);
+  const source = lesson.loading ? null : remote ?? LOCAL_LESSON_VIDEO;
 
   const ref = useRef<VideoRef>(null);
   const [paused, setPaused] = useState(false);
@@ -231,6 +239,11 @@ export const LessonVideoScreen: React.FC<Props> = ({ navigation, route }) => {
             onError={() => setError('Could not play this video. Please try again.')}
             progressUpdateInterval={500}
           />
+        ) : lesson.loading ? (
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color={Colors.primary} />
+            <Text style={styles.loadTxt}>Loading…</Text>
+          </View>
         ) : (
           <View style={styles.center}><Text style={styles.errTxt}>This video is unavailable.</Text></View>
         )}
