@@ -9,7 +9,7 @@ import { AuthField } from '../../components/common/AuthField';
 import { Entrance } from '../../components/common/anim';
 import { GlowBlob } from '../../components/illustrations/OnboardingArt';
 import { useAuth } from '../../context/AuthContext';
-import { initials } from '../../utils/ui';
+import { Avatar } from '../../components/common/Avatar';
 import type { ApiUser } from '../../api';
 
 export const AccountScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
@@ -59,7 +59,7 @@ export const AccountScreen: React.FC<{ navigation: any }> = ({ navigation }) => 
           </View>
 
           <Entrance index={0} style={styles.avatarWrap}>
-            <View style={styles.avatar}><Text style={styles.avatarText}>{initials(name || user?.name)}</Text></View>
+            <Avatar uri={user?.avatar} name={name || user?.name} style={styles.avatar} textStyle={styles.avatarText} />
             <TouchableOpacity style={styles.camBtn} onPress={() => Alert.alert('Coming soon', 'Photo upload will be available shortly.')}>
               <Icon name="edit" size={13} color={Colors.brand} />
             </TouchableOpacity>

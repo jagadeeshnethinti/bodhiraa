@@ -1,15 +1,16 @@
 /**
  * Lightweight fetch-based API client (carhive-style) for the Bodhira backend.
  *
- * Base URL is the production host. Auth token is read from the app's shared
+ * Base URL derives from `Env` (src/config/env.ts). Auth token is read from the app's shared
  * session store (`./storage`) so it stays in sync with the rest of the app.
  *
  * Every call resolves to the parsed JSON body, or `{ code: 2 }` on a network/
  * parse failure (so callers can branch without try/catch everywhere).
  */
 import { Storage } from './storage';
+import { Env } from '../config/env';
 
-const BASE_URL = 'https://bodhiraai.com/api/v1';
+const BASE_URL = Env.apiBaseUrl;
 
 const getToken = () => Storage.getToken();
 

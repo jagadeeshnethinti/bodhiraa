@@ -14,7 +14,8 @@ import { useApi } from '../../hooks/useApi';
 import { StudentApi, NotificationsApi, type ApiSubject, type ApiStudentHome } from '../../api';
 import { useAuth } from '../../context/AuthContext';
 import { Icon } from '../../components/common/Icon';
-import { initials, subjectIconName, subjectColor, subjectTint, clockTime, relativeUntil } from '../../utils/ui';
+import { Avatar } from '../../components/common/Avatar';
+import { subjectIconName, subjectColor, subjectTint, clockTime, relativeUntil } from '../../utils/ui';
 import { planDaysLeft, daysLeftLabel } from '../../utils/plan';
 
 type HomeExtra = {
@@ -65,9 +66,12 @@ export const HomeScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
         <SafeAreaView edges={['top']}>
           <View style={styles.topRow}>
             <View style={styles.userRow}>
-              <View style={[styles.avatar, { backgroundColor: theme.accent }]}>
-                <Text style={[styles.avatarText, { color: theme.onAccent }]}>{initials(user?.name)}</Text>
-              </View>
+              <Avatar
+                uri={user?.avatar}
+                name={user?.name}
+                style={[styles.avatar, { backgroundColor: theme.accent }]}
+                textStyle={[styles.avatarText, { color: theme.onAccent }]}
+              />
               <View>
                 <Text style={styles.helloLabel}>{user?.school ? user.school.name.toUpperCase() : 'WELCOME BACK'}</Text>
                 <Text style={styles.helloName} numberOfLines={1}>{user?.name ?? 'Learner'}</Text>

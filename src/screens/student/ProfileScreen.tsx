@@ -12,8 +12,8 @@ import { useApi } from '../../hooks/useApi';
 import { StudentApi } from '../../api';
 import { useAuth } from '../../context/AuthContext';
 import { Icon, IconName } from '../../components/common/Icon';
+import { Avatar } from '../../components/common/Avatar';
 import { ConfirmDialog } from '../../components/common/PremiumModals';
-import { initials } from '../../utils/ui';
 import { Env } from '../../config/env';
 
 const ACHIEVEMENTS: { icon: IconName; label: string; unlocked: boolean }[] = [
@@ -83,10 +83,10 @@ export const ProfileScreen: React.FC<{ navigation: any }> = ({ navigation }) => 
           <Entrance index={0} style={styles.avatarWrap}>
             {isStudent ? (
               <CircularProgress size={108} strokeWidth={5} progress={levelProgress} trackColor="rgba(245,232,208,0.16)">
-                <View style={[styles.avatar, { backgroundColor: theme.accent }]}><Text style={[styles.avatarText, { color: theme.onAccent }]}>{initials(user?.name)}</Text></View>
+                <Avatar uri={user?.avatar} name={user?.name} style={[styles.avatar, { backgroundColor: theme.accent }]} textStyle={[styles.avatarText, { color: theme.onAccent }]} />
               </CircularProgress>
             ) : (
-              <View style={[styles.avatar, styles.avatarPlain, { backgroundColor: theme.accent }]}><Text style={[styles.avatarText, { color: theme.onAccent }]}>{initials(user?.name)}</Text></View>
+              <Avatar uri={user?.avatar} name={user?.name} style={[styles.avatar, styles.avatarPlain, { backgroundColor: theme.accent }]} textStyle={[styles.avatarText, { color: theme.onAccent }]} />
             )}
             {isStudent && (
               <View style={styles.levelBadge}>

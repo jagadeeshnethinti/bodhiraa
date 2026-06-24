@@ -53,7 +53,16 @@
       "Bash(php84/php.exe artisan *)",
       "Bash(curl -s -o /tmp/feat.html -w \"%{http_code}\" -m 20 http://127.0.0.1:8000/features)",
       "Bash(grep -nE \"^\\(h1|h2|h3|h4\\)[^{]*\\\\{[^}]*color|\\(h1|h2|h3|h4\\)\\\\s*,|\\\\.title\\\\s*\\\\{[^}]*color\" public_html/assets/css/main.css)",
-      "Bash(grep -oE \".{0,40}Ready to modernize your school.{0,20}\" /tmp/feat.html)"
+      "Bash(grep -oE \".{0,40}Ready to modernize your school.{0,20}\" /tmp/feat.html)",
+      "Bash(git grep *)",
+      "Bash(cd e:/project/_bodhiraai.com)",
+      "Bash(echo \"exit:$?\")",
+      "Bash(curl -s -m 8 -X POST http://127.0.0.1:8000/api/v1/auth/login -H \"Content-Type: application/json\" -H \"Accept: application/json\" -d '{\"identifier\":\"student@bodhira.test\",\"password\":\"password\",\"device\":\"win32\"}')",
+      "Bash(curl -s -m 8 -o /dev/null -w \"%{http_code} %{content_type}\\\\n\" http://127.0.0.1:8000/cloud/2026/06/13/prof-img-zjprp0hl.jpg)",
+      "Bash(grep -rn \"resolveMediaUrl\" src/screens src/components)",
+      "Bash(grep -n \"avatar\\\\|Image\\\\|uri\\\\|resolveMediaUrl\" src/screens/student/ProfileScreen.tsx src/screens/student/HomeScreen.tsx src/screens/student/AccountScreen.tsx)",
+      "Bash(ls android/app/src/debug)",
+      "Bash(find android/app/src -name \"network_security_config.xml\")"
     ],
     "additionalDirectories": [
       "e:\\project\\bodhiraa_frontend\\app\\Http\\Controllers",

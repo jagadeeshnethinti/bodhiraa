@@ -1,51 +1,46 @@
-import React from 'react';
-import { Text, StyleSheet, ViewStyle } from 'react-native';
-import LinearGradient from 'react-native-linear-gradient';
-import { Colors } from '../../theme';
-
-type AvatarSize = 'sm' | 'md' | 'lg' | 'xl';
+import React, { useState } from 'react';
+import { View, Text, Image, StyleProp, ViewStyle, TextStyle, ImageStyle } from 'react-native';
+import { resolveMediaUrl } from '../../api';
+import { initials } from '../../utils/ui';
 
 interface AvatarProps {
-  initials?: string;
-  emoji?: string;
-  size?: AvatarSize;
-  style?: ViewStyle;
+  /** Relative (`/cloud/...`) or absolute avatar URL from the backend. */
+  uri?: string | null;
+  /** Used to derive initials when there's no image (or it fails to load). */
+  name?: string | null;
+  /**
+   * Shared style for both the image and the initials circle — pass the same
+   * `styles.avatar` the screen already uses so sizing/border-radius match.
+   */
+  style?: StyleProp<ViewStyle> & StyleProp<ImageStyle>;
+  /** Style for the fallback initials text. */
+  textStyle?: StyleProp<TextStyle>;
 }
 
-const sizeMap: Record<AvatarSize, { box: number; font: number; radius: number }> = {
-  sm: { box: 32, font: 11, radius: 10 },
-  md: { box: 40, font: 14, radius: 12 },
-  lg: { box: 56, font: 20, radius: 16 },
-  xl: { box: 72, font: 28, radius: 22 },
-};
+/**
+ * Renders the user's uploaded avatar when available, falling back to a circle
+ * of initials. Backend avatars come back as relative URLs (e.g.
+ * `/cloud/2026/06/13/prof-img.jpg`) so we resolve them against the API origin;
+ * if the image 404s or fails to decode we fall back to initials too.
+ */
+export const Avatar: React.FC<AvatarProps> = ({ uri, name, style, textStyle }) => {
+  const [failed, setFailed] = useState(false);
+  const resolved = resolveMediaUrl(uri);
 
-export const Avatar: React.FC<AvatarProps> = ({ initials, emoji, size = 'md', style }) => {
-  const s = sizeMap[size];
+  if (resolved && !failed) {
+    return (
+      <Image
+        source={{ uri: resolved }}
+        style={style as StyleProp<ImageStyle>}
+        resizeMode="cover"
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+
   return (
-    <LinearGradient
-      colors={['#C49560', '#A87840']}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={[
-        styles.base,
-        { width: s.box, height: s.box, borderRadius: s.radius },
-        style,
-      ]}
-    >
-      <Text style={[styles.text, { fontSize: s.font }]}>
-        {emoji ?? initials ?? '?'}
-      </Text>
-    </LinearGradient>
+    <View style={style}>
+      <Text style={textStyle}>{initials(name)}</Text>
+    </View>
   );
 };
-
-const styles = StyleSheet.create({
-  base: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  text: {
-    color: Colors.brand,
-    fontWeight: '800',
-  },
-});

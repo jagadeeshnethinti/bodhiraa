@@ -4,22 +4,26 @@ import { Platform } from 'react-native';
  * Single source of truth for backend connectivity. Everything below derives
  * from `API_HOST`.
  *
-<<<<<<< HEAD
- * Currently pointed at the deployed backend (`https://bodhiraai.com`). For local
- * development against `artisan serve`, set this back to the host loopback:
- * iOS simulator → `http://127.0.0.1:8000`; Android emulator → `http://10.0.2.2:8000`
- * (the emulator runs in its own VM and reaches the host loopback as `10.0.2.2`);
- * a physical device → your machine's LAN IP, e.g. `http://192.168.1.20:8000`.
+ * The local Laravel backend lives in the sibling folder `e:\project\_bodhiraai.com`
+ * and is started with `php artisan serve --host=127.0.0.1 --port=8000`
+ * (see `serve.ps1`). Because the emulator/simulator runs in its own VM, the host
+ * loopback is reached differently per platform:
+ *   - Android emulator → `http://10.0.2.2:8000`
+ *   - iOS simulator    → `http://127.0.0.1:8000`
+ *   - Physical device  → your machine's LAN IP, e.g. `http://192.168.1.20:8000`
+ *
+ * For a release build against the deployed server, set `API_HOST = PROD_HOST`.
  */
-const API_HOST = 'https://bodhiraai.com';
-=======
- * Points at the production backend. To run against a local server instead,
- * change `DEV_HOST` (e.g. `http://10.0.2.2:8000` for the Android emulator,
- * `http://127.0.0.1:8000` for the iOS simulator, or `http://<LAN-IP>:8000`
- * for a physical device). Everything else derives from it.
- */
-const DEV_HOST = 'https://bodhiraai.com';
->>>>>>> a80b3b1d96ea33198959875760c9afca6eac9e88
+const PROD_HOST = 'https://bodhiraai.com';
+
+const DEV_HOST =
+  Platform.select({
+    android: 'http://10.0.2.2:8000',
+    ios: 'http://127.0.0.1:8000',
+    default: 'http://127.0.0.1:8000',
+  }) ?? 'http://127.0.0.1:8000';
+
+const API_HOST = DEV_HOST;
 
 export const Env = {
   /**
@@ -30,10 +34,10 @@ export const Env = {
    * SET THIS TO `false` TO USE THE REAL BACKEND at `apiBaseUrl` below. Nothing
    * else needs to change.
    *
-   * Wired to the deployed Laravel backend at https://bodhiraai.com.
+   * Wired to the local Laravel backend (see `API_HOST` above).
    */
   useMock: false,
-  /** Fully-qualified API root, e.g. `https://bodhiraai.com/api/v1`. */
+  /** Fully-qualified API root, e.g. `http://10.0.2.2:8000/api/v1`. */
   apiBaseUrl: `${API_HOST}/api/v1`,
   /**
    * Origin without the `/api/v1` suffix. Uploaded media (`/media/...`,
