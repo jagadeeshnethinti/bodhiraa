@@ -11,6 +11,8 @@ import { ParentProfileScreen }    from '../screens/parent/ParentProfileScreen';
 import { ParentEditProfileScreen } from '../screens/parent/ParentEditProfileScreen';
 import { ParentNotificationsScreen } from '../screens/parent/ParentNotificationsScreen';
 import { ParentFeesScreen }       from '../screens/parent/ParentFeesScreen';
+import { ChatListScreen }         from '../screens/student/ChatListScreen';
+import { ChatThreadScreen }       from '../screens/student/ChatThreadScreen';
 import { LanguageScreen }         from '../screens/student/LanguageScreen';
 
 // ── Parent tabs ───────────────────────────────────────────────────────────────
@@ -25,6 +27,7 @@ const ParentTabs = () => (
     <Tab.Screen name="PChild"      component={ParentChildScreen}      options={{ tabBarLabel: 'My Child' }} />
     <Tab.Screen name="PAttendance" component={ParentAttendanceScreen} options={{ tabBarLabel: 'Attendance' }} />
     <Tab.Screen name="PReports"    component={ParentReportsScreen}    options={{ tabBarLabel: 'Reports' }} />
+    <Tab.Screen name="PMessages"   component={ChatListScreen}         options={{ tabBarLabel: 'Messages' }} />
     <Tab.Screen name="PProfile"    component={ParentProfileScreen}    options={{ tabBarLabel: 'Profile' }} />
   </Tab.Navigator>
 );
@@ -35,6 +38,7 @@ const Stack = createNativeStackNavigator();
 export const ParentNavigator = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="ParentTabs" component={ParentTabs} />
+    <Stack.Screen name="ChatThread" component={ChatThreadScreen} />
     <Stack.Screen name="ParentEditProfile" component={ParentEditProfileScreen} />
     <Stack.Screen name="ParentNotifications" component={ParentNotificationsScreen} />
     <Stack.Screen name="ParentFees" component={ParentFeesScreen} />

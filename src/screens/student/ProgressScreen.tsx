@@ -9,12 +9,36 @@ import { Entrance, AnimatedCounter, Shimmer } from '../../components/common/anim
 import { GlowBlob } from '../../components/illustrations/OnboardingArt';
 import { useApi } from '../../hooks/useApi';
 import { StudentApi } from '../../api';
+import type { ApiBadge } from '../../api';
 import { useAuth } from '../../context/AuthContext';
 import { Icon, IconName } from '../../components/common/Icon';
 import { subjectIconName, subjectColor, subjectTint } from '../../utils/ui';
 
 // Deterministic demo mastery per subject (the wire model carries no per-subject %).
 const DEMO_PROGRESS = [82, 64, 91, 48, 73, 58];
+
+/** A single achievement medal — gradient ring when earned, dimmed + lock when not. */
+const BadgeMedal: React.FC<{ badge: ApiBadge; index: number }> = ({ badge, index }) => (
+  <Entrance index={index} style={styles.badgeItem}>
+    {badge.earned ? (
+      <LinearGradient
+        colors={badge.colors.length >= 2 ? badge.colors : ['#F5C84B', '#C9982E']}
+        start={{ x: 0.3, y: 0 }}
+        end={{ x: 0.7, y: 1 }}
+        style={styles.medal}
+      >
+        <Text style={styles.medalEmoji}>{badge.icon}</Text>
+      </LinearGradient>
+    ) : (
+      <View style={[styles.medal, styles.medalLocked]}>
+        <Text style={[styles.medalEmoji, styles.medalEmojiLocked]}>{badge.icon}</Text>
+        <View style={styles.lockBadge}><Icon name="lock" size={10} color={Colors.text2} /></View>
+      </View>
+    )}
+    <Text style={styles.badgeTitle} numberOfLines={1}>{badge.title}</Text>
+    <Text style={[styles.badgeTier, { color: badge.earned ? Colors.primary : Colors.text2 }]}>{badge.tier_label}</Text>
+  </Entrance>
+);
 
 export const ProgressScreen: React.FC<{ navigation: any }> = () => {
   const { role } = useAuth();
@@ -23,6 +47,7 @@ export const ProgressScreen: React.FC<{ navigation: any }> = () => {
 
   const profile = useApi(signal => (isStudent ? StudentApi.profile(signal) : Promise.resolve(null)), [isStudent]);
   const subjects = useApi(signal => (isStudent ? StudentApi.subjects(signal) : Promise.resolve([])), [isStudent]);
+  const badges = useApi(signal => (isStudent ? StudentApi.badges(signal) : Promise.resolve(null)), [isStudent]);
 
   const p = (profile.data ?? {}) as Record<string, number>;
   const avg = Number(p.avg_score ?? 0);
@@ -85,7 +110,7 @@ export const ProgressScreen: React.FC<{ navigation: any }> = () => {
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={profile.refreshing || subjects.refreshing} onRefresh={() => { profile.refetch(); subjects.refetch(); }} tintColor={Colors.primary} />
+            <RefreshControl refreshing={profile.refreshing || subjects.refreshing || badges.refreshing} onRefresh={() => { profile.refetch(); subjects.refetch(); badges.refetch(); }} tintColor={Colors.primary} />
           }
         >
           <Text style={styles.sectionTitle}>Subject mastery</Text>
@@ -112,6 +137,29 @@ export const ProgressScreen: React.FC<{ navigation: any }> = () => {
                 </Entrance>
               );
             })
+          )}
+
+          {badges.data && badges.data.badges.length > 0 && (
+            <>
+              <View style={styles.badgeHead}>
+                <Text style={styles.sectionTitle}>Achievements</Text>
+                <View style={styles.badgeChips}>
+                  <View style={styles.badgeChip}>
+                    <Icon name="trophy" size={12} color={Colors.primary} />
+                    <Text style={styles.badgeChipTxt}>{badges.data.earned_count}/{badges.data.total}</Text>
+                  </View>
+                  <View style={styles.badgeChip}>
+                    <Icon name="star" size={12} color={Colors.primary} />
+                    <Text style={styles.badgeChipTxt}>{badges.data.total_xp} XP</Text>
+                  </View>
+                </View>
+              </View>
+              <View style={styles.badgeGrid}>
+                {badges.data.badges.map((b, i) => (
+                  <BadgeMedal key={b.key} badge={b} index={i} />
+                ))}
+              </View>
+            </>
           )}
         </ScrollView>
       )}
@@ -158,4 +206,19 @@ const styles = StyleSheet.create({
   subjectName: { fontSize: 13.5, fontWeight: '700', color: Colors.text },
   subjectMeta: { fontSize: 11, color: Colors.text2, marginTop: 2 },
   subjectPct: { fontSize: 15, fontWeight: '900' },
+
+  // Achievements
+  badgeHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14, marginBottom: 4 },
+  badgeChips: { flexDirection: 'row', gap: 8 },
+  badgeChip: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#FBF1E2', paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999 },
+  badgeChipTxt: { fontSize: 11.5, fontWeight: '800', color: Colors.text },
+  badgeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 4 },
+  badgeItem: { width: '30%', alignItems: 'center', backgroundColor: Colors.card, borderRadius: Radius.md, paddingVertical: 14, paddingHorizontal: 6, borderWidth: 1, borderColor: Colors.border2, ...Shadow.sm },
+  medal: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  medalLocked: { backgroundColor: '#E9E2D6' },
+  medalEmoji: { fontSize: 26 },
+  medalEmojiLocked: { opacity: 0.45 },
+  lockBadge: { position: 'absolute', right: -2, bottom: -2, width: 20, height: 20, borderRadius: 10, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border2, alignItems: 'center', justifyContent: 'center' },
+  badgeTitle: { fontSize: 11.5, fontWeight: '800', color: Colors.text, textAlign: 'center' },
+  badgeTier: { fontSize: 9.5, fontWeight: '800', letterSpacing: 0.4, textTransform: 'uppercase', marginTop: 2 },
 });

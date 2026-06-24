@@ -12,7 +12,7 @@ import React, { useEffect, useRef } from 'react';
 import { Animated } from 'react-native';
 import Svg, { Path, Circle, Rect, Line } from 'react-native-svg';
 
-type GlyphKey = 'home' | 'book' | 'ai' | 'chart' | 'user' | 'group' | 'cap' | 'calendar' | 'document';
+type GlyphKey = 'home' | 'book' | 'ai' | 'chart' | 'user' | 'group' | 'cap' | 'calendar' | 'document' | 'chat';
 
 /** Every tab route (student / parent / teacher / admin) → a glyph. */
 const ROUTE_GLYPH: Record<string, GlyphKey> = {
@@ -24,6 +24,7 @@ const ROUTE_GLYPH: Record<string, GlyphKey> = {
   Students: 'group', Users: 'group', AUsers: 'group',
   PChild: 'cap',
   PAttendance: 'calendar',
+  Messages: 'chat', PMessages: 'chat',
   Profile: 'user', TeacherProfile: 'user', PProfile: 'user', AProfile: 'user',
 };
 
@@ -125,6 +126,14 @@ const Glyph: React.FC<{ k: GlyphKey; color: string; focused: boolean }> = ({ k, 
           <Line x1="9.5" y1="12" x2="15" y2="12" {...s} />
           <Line x1="9.5" y1="15" x2="15" y2="15" {...s} />
           <Line x1="9.5" y1="18" x2="13" y2="18" {...s} />
+        </>
+      );
+    case 'chat':
+      return (
+        <>
+          <Path d="M4.5 6.5 Q4.5 4.5 6.5 4.5 H17.5 Q19.5 4.5 19.5 6.5 V14 Q19.5 16 17.5 16 H9 L5 19.5 V16 Q4.5 16 4.5 14 Z" fill={fill} fillOpacity={fo} {...s} />
+          <Line x1="8" y1="9" x2="16" y2="9" {...s} />
+          <Line x1="8" y1="12" x2="13" y2="12" {...s} />
         </>
       );
   }

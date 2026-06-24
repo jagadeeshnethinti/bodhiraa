@@ -29,5 +29,6 @@ export type {
   ParentAssignments,
 } from './endpoints/parent';
 export { AdminApi } from './endpoints/admin';
+export { ChatApi } from './endpoints/chat';
 
 export * from './types';

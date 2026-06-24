@@ -7,6 +7,7 @@ import type {
   ApiAiSessionSummary,
   ApiAttempt,
   ApiAttemptResult,
+  ApiBadgeCollection,
   ApiChapterLessons,
   ApiJoinResult,
   ApiLesson,
@@ -234,6 +235,10 @@ export const StudentApi = {
       // rank has no backend source; screen falls back to "#—" when absent.
     } as ApiStudentProfile;
   },
+
+  /** Full achievement-badge collection (earned + locked) with tier visuals. */
+  badges: (signal?: AbortSignal) =>
+    api.getData<ApiBadgeCollection>('/student/badges', { signal }),
 
   // ── Subjects → chapters → lessons ───────────────────────────────────────────
   // subjects / subject already match the wire types — pass through.

@@ -62,11 +62,13 @@
       "Bash(grep -rn \"resolveMediaUrl\" src/screens src/components)",
       "Bash(grep -n \"avatar\\\\|Image\\\\|uri\\\\|resolveMediaUrl\" src/screens/student/ProfileScreen.tsx src/screens/student/HomeScreen.tsx src/screens/student/AccountScreen.tsx)",
       "Bash(ls android/app/src/debug)",
-      "Bash(find android/app/src -name \"network_security_config.xml\")"
+      "Bash(find android/app/src -name \"network_security_config.xml\")",
+      "Read(//c/Users/venkt/Downloads/**)"
     ],
     "additionalDirectories": [
       "e:\\project\\bodhiraa_frontend\\app\\Http\\Controllers",
-      "e:\\project\\_bodhiraai.com\\resources\\views"
+      "e:\\project\\_bodhiraai.com\\resources\\views",
+      "c:\\Users\\venkt\\Downloads"
     ]
   }
 }

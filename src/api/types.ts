@@ -318,3 +318,74 @@ export interface ApiStudentHome {
 
 /** Profile aggregate stats — treat as free-form. */
 export type ApiStudentProfile = Record<string, unknown>;
+
+/** A single achievement badge (earned or locked) — mirrors the web "My Badges". */
+export interface ApiBadge {
+  key: string;
+  title: string;
+  icon: string; // emoji glyph
+  tier: 'bronze' | 'silver' | 'gold' | 'platinum';
+  tier_label: string;
+  colors: string[]; // gradient stops for the medal ring
+  glow: string;
+  xp: number;
+  desc: string;
+  earned: boolean;
+  earned_at: string | null;
+}
+
+export interface ApiBadgeCollection {
+  badges: ApiBadge[];
+  earned_count: number;
+  total: number;
+  total_xp: number;
+  completion_percent: number;
+}
+
+// ── Parent ↔ teacher chat ────────────────────────────────────────────────────
+export interface ApiChatPartner {
+  id: number;
+  name: string;
+  role: string | null;
+  role_label: string | null;
+  avatar: string | null;
+}
+
+export interface ApiChatPreview {
+  body: string;
+  mine: boolean;
+  time: string;
+}
+
+export interface ApiConversation {
+  id: number;
+  partner: ApiChatPartner | null;
+  last_message_at: string | null;
+  unread_count: number;
+  preview: ApiChatPreview | null;
+}
+
+export interface ApiChatMessage {
+  id: number;
+  body: string;
+  mine: boolean;
+  read: boolean;
+  created_at: string | null;
+  time: string;
+}
+
+export interface ApiChatThread {
+  conversation: { id: number; partner: ApiChatPartner | null };
+  messages: ApiChatMessage[];
+}
+
+export interface ApiChatContact {
+  start: 'with-teacher' | 'with-parent';
+  student: { id: number; name: string };
+  partner: ApiChatPartner;
+}
+
+export interface ApiChatStartResult {
+  id: number;
+  partner: ApiChatPartner | null;
+}

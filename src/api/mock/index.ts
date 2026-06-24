@@ -19,8 +19,12 @@ import type {
   ApiAiSessionSummary,
   ApiAttempt,
   ApiAttemptResult,
+  ApiBadgeCollection,
   ApiChapter,
   ApiChapterLessons,
+  ApiChatContact,
+  ApiChatThread,
+  ApiConversation,
   ApiJoinResult,
   ApiLesson,
   ApiLessonProgress,
@@ -186,6 +190,74 @@ const PROFILE: ApiStudentProfile = {
   level_progress: 68,
   xp_points: 2480,
 };
+
+const TIER_COLORS: Record<string, { colors: string[]; glow: string; label: string }> = {
+  bronze: { label: 'Bronze', colors: ['#F6D9B8', '#CD7F32', '#8C5A24'], glow: 'rgba(205,127,50,.55)' },
+  silver: { label: 'Silver', colors: ['#F4F7FA', '#AEB8C2', '#7D8893'], glow: 'rgba(174,184,194,.55)' },
+  gold: { label: 'Gold', colors: ['#FFF1C9', '#F5C84B', '#C9982E'], glow: 'rgba(245,200,75,.6)' },
+  platinum: { label: 'Platinum', colors: ['#EAFBFF', '#B9F2FF', '#6DD5FA'], glow: 'rgba(109,213,250,.6)' },
+};
+
+const mockBadge = (
+  key: string,
+  title: string,
+  icon: string,
+  tier: 'bronze' | 'silver' | 'gold' | 'platinum',
+  xp: number,
+  desc: string,
+  earned: boolean,
+) => ({
+  key, title, icon, tier, xp, desc, earned,
+  tier_label: TIER_COLORS[tier].label,
+  colors: TIER_COLORS[tier].colors,
+  glow: TIER_COLORS[tier].glow,
+  earned_at: earned ? '2026-06-18T10:00:00+00:00' : null,
+});
+
+const BADGE_LIST = [
+  mockBadge('perfect_score', 'Perfect Score', '💯', 'platinum', 120, 'A flawless 100% — not a single mistake.', true),
+  mockBadge('flawless_combo', 'Flawless Victory', '👑', 'platinum', 150, 'Perfect score, lightning fast. Elite.', false),
+  mockBadge('quiz_conqueror', 'Quiz Conqueror', '🔥', 'gold', 70, 'Crushed the quiz with a top score.', true),
+  mockBadge('fast_finisher', 'Fast Finisher', '🚀', 'gold', 55, 'Aced it in record time.', true),
+  mockBadge('number_ninja', 'Number Ninja', '🧮', 'gold', 55, 'Mastered a Mathematics challenge.', false),
+  mockBadge('logic_explorer', 'Logic Explorer', '🧪', 'gold', 55, 'Conquered a Science quiz.', false),
+  mockBadge('word_wizard', 'Word Wizard', '📖', 'gold', 55, 'Top marks in language & literature.', false),
+  mockBadge('concept_master', 'Concept Master', '🎓', 'gold', 55, 'Deep mastery of the subject.', false),
+  mockBadge('sharp_mind', 'Sharp Mind', '🧠', 'silver', 45, 'Scored 80% or higher. Crisp thinking!', true),
+  mockBadge('quiz_winner', 'Quiz Winner', '🎉', 'bronze', 30, 'Passed the quiz — momentum building!', true),
+  mockBadge('first_steps', 'First Steps', '🌱', 'bronze', 25, 'Completed your very first quiz.', true),
+];
+
+const BADGES: ApiBadgeCollection = {
+  badges: BADGE_LIST,
+  earned_count: BADGE_LIST.filter(b => b.earned).length,
+  total: BADGE_LIST.length,
+  total_xp: BADGE_LIST.filter(b => b.earned).reduce((s, b) => s + b.xp, 0),
+  completion_percent: Math.round((BADGE_LIST.filter(b => b.earned).length / BADGE_LIST.length) * 100),
+};
+
+// ── Chat (parent ↔ teacher) ──────────────────────────────────────────────────
+const CHAT_PARTNER = { id: 901, name: 'Mrs. Anita Sharma', role: 'teacher', role_label: 'Teacher', avatar: null };
+const CHAT_THREADS: Record<number, ApiChatThread> = {
+  1: {
+    conversation: { id: 1, partner: CHAT_PARTNER },
+    messages: [
+      { id: 1, body: 'Good morning! Just wanted to share that Aarav did really well in today’s Maths quiz. 🎉', mine: false, read: true, created_at: '2026-06-24T09:10:00+00:00', time: '9:10 AM' },
+      { id: 2, body: 'That’s wonderful to hear, thank you for letting me know!', mine: true, read: true, created_at: '2026-06-24T09:14:00+00:00', time: '9:14 AM' },
+      { id: 3, body: 'He’s been practising the worksheets at home every evening.', mine: true, read: true, created_at: '2026-06-24T09:15:00+00:00', time: '9:15 AM' },
+      { id: 4, body: 'It shows! Could you ensure he revises chapter 6 before Friday’s class test?', mine: false, read: false, created_at: '2026-06-24T09:20:00+00:00', time: '9:20 AM' },
+    ],
+  },
+};
+const CONVERSATIONS: ApiConversation[] = [
+  { id: 1, partner: CHAT_PARTNER, last_message_at: '2026-06-24T09:20:00+00:00', unread_count: 1, preview: { body: 'Could you ensure he revises chapter 6 before Friday’s class test?', mine: false, time: '9:20 AM' } },
+  { id: 2, partner: { id: 902, name: 'Mr. Rahul Verma', role: 'teacher', role_label: 'Teacher', avatar: null }, last_message_at: '2026-06-22T16:02:00+00:00', unread_count: 0, preview: { body: 'Thank you, see you at the PTM.', mine: true, time: '4:02 PM' } },
+];
+const CHAT_CONTACTS: ApiChatContact[] = [
+  { start: 'with-teacher', student: { id: 11, name: 'Aarav' }, partner: CHAT_PARTNER },
+  { start: 'with-teacher', student: { id: 12, name: 'Diya' }, partner: { id: 902, name: 'Mr. Rahul Verma', role: 'teacher', role_label: 'Teacher', avatar: null } },
+];
+let chatMsgSeq = 1000;
 
 const AI_RECOMMENDATIONS: string[] = [
   'Explain Newton’s third law with an example',
@@ -382,6 +454,31 @@ export function resolveMock(method: string, rawPath: string, ctx: MockCtx): Mock
   // ── Student ─────────────────────────────────────────────────────────────────
   if (method === 'GET' && path === 'student/home') return ok(studentHome());
   if (method === 'GET' && path === 'student/profile') return ok(PROFILE);
+  if (method === 'GET' && path === 'student/badges') return ok(BADGES);
+
+  // ── Chat (parent ↔ teacher) ──
+  if (method === 'GET' && path === 'chat') return ok(CONVERSATIONS);
+  if (method === 'GET' && path === 'chat/contacts') return ok(CHAT_CONTACTS);
+  if (method === 'POST' && (path.startsWith('chat/with-teacher/') || path.startsWith('chat/with-parent/'))) {
+    return ok({ id: 1, partner: CHAT_PARTNER });
+  }
+  if (method === 'POST' && path.startsWith('chat/') && path.endsWith('/messages')) {
+    const id = Number(path.split('/')[1]) || 1;
+    const msg = {
+      id: ++chatMsgSeq,
+      body: String(body.body ?? ''),
+      mine: true,
+      read: false,
+      created_at: '2026-06-25T10:00:00+00:00',
+      time: '10:00 AM',
+    };
+    if (CHAT_THREADS[id]) CHAT_THREADS[id].messages.push(msg);
+    return ok(msg);
+  }
+  if (method === 'GET' && /^chat\/\d+$/.test(path)) {
+    const id = Number(path.split('/')[1]);
+    return ok(CHAT_THREADS[id] ?? { conversation: { id, partner: CHAT_PARTNER }, messages: [] });
+  }
   if (method === 'GET' && path === 'student/subjects') return ok(SUBJECTS);
   if (method === 'GET' && /^student\/subjects\/(\d+)$/.test(path)) {
     const id = num(/^student\/subjects\/(\d+)$/);
